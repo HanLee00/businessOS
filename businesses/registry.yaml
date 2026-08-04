@@ -1,0 +1,21 @@
+schema_version: 1
+default_business_id: null
+selection_required: true
+
+businesses:
+  - business_id: gaia
+    display_name: Gaia Gifts Co
+    status: active
+    project_root: /Users/hanlee/Developer/Gaia
+    profile: businesses/gaia/profile.yaml
+    zoho_books_organization_id: "933894797"
+
+  - business_id: ohvenus
+    display_name: Oh! Venus
+    status: active
+    project_root: /Users/hanlee/Developer/OhVenus
+    profile: businesses/ohvenus/profile.yaml
+    zoho_books_organization_id: "933897042"
+
+# Add future businesses through templates/onboarding/business-intake.md.
+# Never set a default business: explicit selection prevents cross-business writes.

@@ -1,0 +1,24 @@
+schema_version: 1
+workflow: quotation_prepare
+business_id: null
+organization_id: null
+customer:
+  existing_contact_id: null
+  display_name: null
+  email: null
+quotation:
+  currency: MYR
+  date: null
+  expiry_date: null
+  reference: null
+  tax_treatment: null
+  delivery_amount: 0
+  deposit_terms: null
+  lead_time: null
+  notes: null
+  line_items: []
+safety:
+  mode: validate_only
+  send: false
+  convert_to_invoice: false
+  allow_external_write: false

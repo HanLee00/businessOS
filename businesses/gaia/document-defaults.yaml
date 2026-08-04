@@ -1,0 +1,86 @@
+schema_version: 1
+business_id: gaia
+document_email: gaiagiftsco@gmail.com
+website: gaiagifts.co
+
+branding:
+  template_version: gaia_invoice_v1
+  approval_status: owner_approved
+  style: minimal_earthy
+  page_size: A4
+  logo:
+    file: assets/gaia-logo-240.png
+    position: top_left
+    display_size_pt: 28
+    treatment: small_monochrome_mark
+  palette:
+    primary_sage: "#606F52"
+    pale_sage: "#EEF3E9"
+    text: "#111111"
+  color_usage:
+    - sage_table_header
+    - pale_sage_balance_band
+    - sage_invoice_title_rule
+    - sage_section_accent_rules
+    - sage_website_text
+
+file_naming:
+  order: invoice_number_then_company_name
+  pattern: "IV #<invoice_number> - <customer_company_name>.pdf"
+  company_name_source: zoho_customer_company_name
+  preserve_spaces: true
+  required_for_exports: true
+
+invoice_numbering:
+  mode: explicit_unique_number
+  source: zoho_books_live_read
+  duplicate_check_required: true
+  note: >-
+    No counter is stored here. Before creating an invoice, read the most recent
+    invoice number from Zoho (LIST_INVOICES sorted by created_time desc) and
+    increment it. Zoho Books is the only source of truth for the sequence.
+
+shipping_policy:
+  quantity_basis: total_product_piece_quantity_excluding_shipping_and_service_lines
+  region_source: customer_delivery_address_then_billing_address
+  presentation:
+    fixed_format: true
+    zoho_field: shipping_charge
+    scope: invoice_level
+    display_location: totals_summary_after_product_subtotal
+    prohibit_shipping_as_line_item: true
+  west_malaysia:
+    quantity_up_to_and_including: 100
+    default_fee_myr: 15
+    action: apply_automatically
+    quantity_above_100:
+      action: ask_owner_before_invoice_creation
+      prompt: Confirm whether the standard RM15 shipping fee changes for this order.
+  east_malaysia:
+    action: ask_owner_before_invoice_creation
+    default_fee_myr: null
+    prompt: Confirm the shipping fee before creating the invoice.
+  missing_or_ambiguous_region:
+    action: ask_owner_before_invoice_creation
+    prompt: Confirm the delivery region and shipping fee before creating the invoice.
+  legacy_shipping_item:
+    zoho_item_id: "726115000000108002"
+    zoho_item_name: Shipping Fee - West Malaysia
+    rule: do_not_use
+    note: Superseded by the invoice-level Shipping Charges field. Never add shipping as a line item.
+
+invoice_notes:
+  payment_terms: "Payment Terms: Full payment is required before delivery."
+  lead_time: "Lead Time: 7-14 working days from receipt of full payment and written confirmation of the final artwork."
+
+payment_details:
+  source_of_truth: zoho_books
+  store_exact_bank_details_here: false
+  invoice_field: terms
+  note: >-
+    Bank details live only in Zoho. They are written into the invoice `terms`
+    field at creation time; `notes` carries payment terms and lead time.
+
+sender_identity:
+  document_email: gaiagiftsco@gmail.com
+  rule: Never display a personal email address on a Gaia document.

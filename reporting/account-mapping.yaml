@@ -1,0 +1,36 @@
+schema_version: 1
+currency: MYR
+status: draft_requires_account_review
+
+reporting_lines:
+  revenue:
+    gaia_accounts: []
+    ohvenus_accounts: []
+  discounts_and_refunds:
+    gaia_accounts: []
+    ohvenus_accounts: []
+  cost_of_goods_sold:
+    gaia_accounts: []
+    ohvenus_accounts: []
+  payment_processing_fees:
+    gaia_accounts: []
+    ohvenus_accounts: []
+  fulfillment_and_courier:
+    gaia_accounts: []
+    ohvenus_accounts: []
+  advertising:
+    gaia_accounts: []
+    ohvenus_accounts: []
+  software_and_subscriptions:
+    gaia_accounts: []
+    ohvenus_accounts: []
+  other_operating_expenses:
+    gaia_accounts: []
+    ohvenus_accounts: []
+
+shared_expense_allocations:
+  policy_status: not_defined
+  rules: []
+
+# Populate exact Zoho account IDs/names only after each chart of accounts is
+# reviewed. Never infer mappings from similar account names across businesses.

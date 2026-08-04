@@ -1,0 +1,43 @@
+schema_version: 1
+business_id: ohvenus
+display_name: "Oh! Venus"
+project_root: /Users/hanlee/Developer/OhVenus
+business_model: ecommerce
+status: active
+
+data_boundary:
+  detailed_context_location: /Users/hanlee/Developer/OhVenus
+  store_operational_data_here: false
+
+integrations:
+  accounting:
+    provider: zoho_books
+    access_via: composio
+    organization_id: "933897042"
+    organization_name: "Oh! Venus"
+    connection_name: composio_default
+  commerce:
+    provider: shopify
+    store_identifier: null
+  email:
+    provider: gmail
+    mailbox: null
+  files:
+    provider: google_drive
+    root_folder_id: null
+
+defaults:
+  currency: MYR
+  timezone: Asia/Kuala_Lumpur
+  zoho_tax_registered: false
+  sales_tax_type: exclusive
+  tax_basis: accrual
+  tax_treatment: unconfirmed_business_policy
+  payment_terms_days: null
+
+required_confirmation:
+  - legal_entity_name
+  - shopify_store_identifier
+  - tax_treatment
+  - payment_terms_days
+  - authorized_sender_identity

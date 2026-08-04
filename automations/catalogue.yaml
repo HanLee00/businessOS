@@ -1,0 +1,76 @@
+schema_version: 1
+
+allowed_statuses:
+  - proposed
+  - documented
+  - dry_run
+  - supervised
+  - active
+  - paused
+  - retired
+
+automations:
+  - automation_id: finance.invoice_prepare
+    name: Prepare invoice payload
+    applies_to: [gaia, ohvenus]
+    trigger: manual_request
+    status: documented
+    approval_level: A1
+    system: zoho_books
+    action: validate inputs, resolve existing references, and preview totals/payload
+    external_write: false
+    evidence: workflows/invoicing/README.md
+
+  - automation_id: finance.invoice_create_draft
+    name: Create unsent invoice draft
+    applies_to: [gaia, ohvenus]
+    trigger: explicit_user_approval
+    status: supervised
+    approval_level: A2
+    system: zoho_books
+    action: create a draft invoice without sending or recording payment
+    external_write: true
+    prerequisites:
+      - verified organization mapping
+      - authorized Zoho Books connection
+      - duplicate check
+      - business shipping policy resolved, including any required owner confirmation
+      - payload preview approved
+    evidence: workflows/invoicing/README.md
+
+  - automation_id: finance.invoice_send
+    name: Send approved invoice
+    applies_to: [gaia, ohvenus]
+    trigger: explicit_user_approval
+    status: proposed
+    approval_level: A3
+    system: zoho_books
+    action: send a reviewed invoice to the confirmed recipient
+    external_write: true
+    prerequisites:
+      - reviewed external draft
+      - recipient confirmed
+      - final totals and attachments confirmed
+
+  - automation_id: finance.payment_record
+    name: Record invoice payment
+    applies_to: [gaia, ohvenus]
+    trigger: explicit_user_approval
+    status: proposed
+    approval_level: A3
+    system: zoho_books
+    action: record payment against an existing invoice
+    external_write: true
+
+  - automation_id: finance.invoice_reminder
+    name: Send invoice reminder
+    applies_to: [gaia, ohvenus]
+    trigger: manual_request
+    status: proposed
+    approval_level: A3
+    system: zoho_books
+    action: send a reminder for a verified outstanding invoice
+    external_write: true
+
+# Enabling unattended execution requires a documented amendment, monitoring,
+# failure handling, and explicit owner approval. No automation is active today.

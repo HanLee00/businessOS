@@ -1,0 +1,66 @@
+schema_version: 1
+
+# Routing map only. Connection health, plan tier, and write-capability are live
+# facts owned by Composio and each provider - never cached here.
+
+integrations:
+  - integration_id: zoho_books
+    domain: accounting
+    access_via: composio
+    system_of_record_for:
+      - quotations
+      - invoices
+      - payments
+      - expenses
+      - tax_records
+      - financial_reports
+    scope_model: one_explicit_organization_per_action
+    credential_storage: provider_connection_or_secret_store
+    businesses:
+      gaia:
+        organization_id: "933894797"
+        organization_name: Gaia Gifts Co
+      ohvenus:
+        organization_id: "933897042"
+        organization_name: "Oh! Venus"
+
+  - integration_id: shopify
+    domain: commerce
+    system_of_record_for:
+      - orders
+      - products
+      - ecommerce_inventory
+    scope_model: one_explicit_store_per_action
+    credential_storage: provider_connection_or_secret_store
+    businesses:
+      ohvenus: awaiting_store_identifier
+
+  - integration_id: gmail
+    domain: communication
+    system_of_record_for:
+      - business_email
+    scope_model: one_explicit_mailbox_per_action
+    credential_storage: provider_connection
+    businesses:
+      gaia: gaiagiftsco@gmail.com
+      ohvenus: awaiting_mailbox
+
+  - integration_id: google_drive
+    domain: files
+    system_of_record_for:
+      - working_files
+      - final_documents
+    scope_model: one_explicit_business_root_folder
+    credential_storage: provider_connection
+    businesses:
+      gaia: awaiting_root_folder
+      ohvenus: awaiting_root_folder
+
+  - integration_id: calendar
+    domain: scheduling
+    system_of_record_for:
+      - meetings
+      - operational_reminders
+    scope_model: explicit_calendar_per_action
+    credential_storage: provider_connection
+    businesses: {}

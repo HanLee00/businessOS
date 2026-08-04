@@ -1,0 +1,42 @@
+schema_version: 1
+business_id: replace-with-lowercase-id
+display_name: Replace Me
+project_root: /absolute/path/to/business-project
+business_model: null
+status: onboarding
+
+data_boundary:
+  detailed_context_location: /absolute/path/to/business-project
+  store_operational_data_here: false
+
+integrations:
+  accounting:
+    provider: null
+    organization_id: null
+    connection_name: null
+    status: not_configured
+  commerce:
+    provider: null
+    store_identifier: null
+    status: not_configured
+  email:
+    provider: null
+    mailbox: null
+    status: not_configured
+  files:
+    provider: null
+    root_folder_id: null
+    status: not_configured
+
+defaults:
+  currency: null
+  timezone: Asia/Kuala_Lumpur
+  tax_treatment: null
+  payment_terms_days: null
+
+required_confirmation:
+  - legal_entity_name
+  - systems_of_record
+  - currency
+  - tax_treatment
+  - approval_owner

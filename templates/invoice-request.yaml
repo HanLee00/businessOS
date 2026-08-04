@@ -1,0 +1,19 @@
+schema_version: 1
+workflow: invoice_prepare
+business_id: null
+organization_id: null
+customer_id: null
+currency: MYR
+invoice_date: null
+due_date: null
+reference: null
+payment_terms_days: null
+tax_treatment: null
+line_items: []
+safety:
+  mode: validate_only
+  send: false
+  post: false
+  finalize: false
+  record_payment: false
+  allow_external_write: false

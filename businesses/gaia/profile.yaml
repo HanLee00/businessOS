@@ -1,0 +1,47 @@
+schema_version: 1
+business_id: gaia
+display_name: Gaia Gifts Co
+project_root: /Users/hanlee/Developer/Gaia
+business_model: b2b_corporate_gifting
+status: active
+
+data_boundary:
+  detailed_context_location: /Users/hanlee/Developer/Gaia
+  store_operational_data_here: false
+
+integrations:
+  accounting:
+    provider: zoho_books
+    access_via: composio
+    organization_id: "933894797"
+    organization_name: Gaia Gifts Co
+    connection_name: composio_default
+  commerce:
+    provider: null
+  email:
+    provider: gmail
+    mailbox: gaiagiftsco@gmail.com
+    document_email: gaiagiftsco@gmail.com
+  files:
+    provider: google_drive
+    root_folder_id: null
+
+defaults:
+  currency: MYR
+  timezone: Asia/Kuala_Lumpur
+  website: gaiagifts.co
+  zoho_tax_registered: false
+  sales_tax_type: exclusive
+  tax_basis: accrual
+  tax_treatment: unconfirmed_business_policy
+  payment_terms_days: null
+  invoice_numbering:
+    mode: explicit_unique_number
+    source: zoho_books_live_read
+    note: Never cache an invoice number here. Read the latest from Zoho at run time.
+  invoice_defaults_file: document-defaults.yaml
+
+required_confirmation:
+  - legal_entity_name
+  - tax_treatment
+  - payment_terms_days
