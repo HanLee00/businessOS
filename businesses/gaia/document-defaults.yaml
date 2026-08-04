@@ -24,6 +24,49 @@ branding:
     - sage_section_accent_rules
     - sage_website_text
 
+templates:
+  standard:
+    zoho_template_id: "726115000000017001"
+    zoho_template_name: Standard Template
+    use_for: uniforms_and_clothing
+    rule: Default template unless the order is explicitly gift/merch.
+  gift:
+    zoho_template_id: "726115000000122002"
+    zoho_template_name: Gift
+    use_for: gift_and_merch
+    rule: Use for corporate gift sets, promotional merchandise, and non-apparel branded items.
+  note: >-
+    Pick by order content, not by customer. A customer that orders both uniforms
+    and gift sets gets one invoice per template as needed.
+
+line_item_description_format:
+  rule: >-
+    Never write order specifics as one comma-separated line. Break each distinct
+    detail onto its own line: item/variant name, colour, then a labelled section
+    per detail group (for example "Heat Press Print:" or "HEATPRESS PRINT (DTF):")
+    with one line per position/spec, then a labelled size breakdown with one line
+    per size.
+  example: |
+    Custom Made Polo Tshirt - Lacoste Cotton 220gsm (Navy/Dark Green/Yellow)
+    HEATPRESS PRINT (DTF):
+    Front left - 3.5 inch
+    Front right - 3.5 inch
+    Front left (bottom) - 2 inch
+    Left sleeve - 2 inch
+    Right sleeve - 3.5 inch
+    Back - 1.5 inch
+
+reference_number:
+  rule: always_set
+  format: "<CUSTOMERCODE>-<YYYYMMDD>-<ITEMCODE>"
+  note: >-
+    Set on every invoice regardless of whether the customer supplied a real PO
+    number. Used for internal lookup, not a claim that it is the customer's PO.
+  known_gap: >-
+    The ZOHO_BOOKS_UPDATE_INVOICE wrapper tool has no reference_number field in
+    its schema and silently drops it. Set it via the raw API proxy
+    (PUT /invoices/{id}) instead - see workflows/invoicing/README.md.
+
 file_naming:
   order: invoice_number_then_company_name
   pattern: "IV #<invoice_number> - <customer_company_name>.pdf"

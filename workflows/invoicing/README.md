@@ -68,19 +68,53 @@ Use the full documented endpoint. A shortened proxy path is rejected and creates
 2. **`line_items` on update is a full replace, not a merge.** An update that omits
    existing lines silently deletes them from the invoice. Always resend the complete
    array, including `line_item_id` for every line being kept.
-3. **Always read the invoice back after writing.** Confirm number, subtotal,
-   shipping, total, line count, `status: draft`, and `is_emailed: false`.
+3. **`ZOHO_BOOKS_UPDATE_INVOICE`'s wrapper schema has no `reference_number` field.**
+   Passing it is accepted and reports success but is silently dropped - the value
+   never saves. Set or change `reference_number` through the raw proxy instead:
+   `PUT /invoices/{invoice_id}` with `reference_number` in the body. Always resend
+   `line_items` here too, for the same full-replace reason as above.
+4. **Always read the invoice back after writing.** Confirm number, subtotal,
+   shipping, total, line count, `reference_number`, `status: draft`, and
+   `is_emailed: false`. A "success" response is not proof a field actually saved -
+   this repository has hit silent-drop failures on both `invoice_number` and
+   `reference_number`.
+5. **The workbench's `proxy_execute` session can go stale mid-task**, reporting
+   "project API key has been revoked or has expired" even seconds after a fresh
+   session was generated. This is not fixed by requesting a new session - it is a
+   sandbox-level auth issue distinct from the Zoho connection itself, which keeps
+   working fine through the standard wrapper tools throughout. If proxy_execute
+   fails this way, fall back to wrapper tools for whatever doesn't need the proxy,
+   and retry the proxy-only steps in a later session rather than looping on it.
 
 ### Required fields on every Gaia invoice
 
 - `notes` - payment terms and lead time (see `businesses/gaia/document-defaults.yaml`)
 - `terms` - the PAYMENT DETAILS bank block
 - `shipping_charge` - invoice-level, never a line item
-- `template_id` - the Gaia standard template
+- `template_id` - see Template selection below
+- `reference_number` - always set, see Reference number below
 
 Order-specific detail (fabric, colour, print positions and sizes) belongs in the
 **line item description**, not in the item master record. Item masters stay generic
-because these vary per order.
+because these vary per order. Write each distinct detail on its own line - never
+comma-separate a print spec or size breakdown onto one line. Exact format and a
+worked example are in `businesses/<id>/document-defaults.yaml` under
+`line_item_description_format`.
+
+### Template selection
+
+Two Gaia templates exist in Zoho: `Standard Template` (`726115000000017001`,
+default, uniforms and clothing) and `Gift` (`726115000000122002`, gift and merch
+orders). Pick by what the order actually contains, not by customer - the same
+customer can get either template depending on the order. Full mapping is in
+`businesses/gaia/document-defaults.yaml` under `templates`.
+
+### Reference number
+
+Always set `reference_number`, whether or not the customer supplied a real PO -
+format `<CUSTOMERCODE>-<YYYYMMDD>-<ITEMCODE>`. It is an internal lookup key, not a
+claim that it's the customer's own PO number. See the wrapper-tool gap above for
+how to actually set it.
 
 ## Result contract
 
