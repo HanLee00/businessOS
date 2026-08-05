@@ -100,10 +100,11 @@ reference_number:
   note: >-
     Set on every invoice regardless of whether the customer supplied a real PO
     number. Used for internal lookup, not a claim that it is the customer's PO.
-  known_gap: >-
-    The ZOHO_BOOKS_UPDATE_INVOICE wrapper tool has no reference_number field in
-    its schema and silently drops it. Set it via the raw API proxy
-    (PUT /invoices/{id}) instead - see workflows/invoicing/README.md.
+  single_source: workflows/invoicing/README.md#failure-modes-already-hit-in-production
+  how_to_set: >-
+    Use the raw API proxy (PUT /invoices/{id}). The wrapper's behaviour with
+    this field is unreliable, and an immediate read-back can return stale data -
+    the full explanation lives in the file named above. Do not restate it here.
 
 file_naming:
   order: invoice_number_then_company_name
@@ -116,10 +117,12 @@ invoice_numbering:
   mode: explicit_unique_number
   source: zoho_books_live_read
   duplicate_check_required: true
+  single_source: workflows/invoicing/README.md#invoice-numbering
   note: >-
-    No counter is stored here. Before creating an invoice, read the most recent
-    invoice number from Zoho (LIST_INVOICES sorted by created_time desc) and
-    increment it. Zoho Books is the only source of truth for the sequence.
+    No counter is stored here - Zoho Books owns the sequence. The method for
+    reading the next number is defined once, in the file named above. Do not
+    restate it here; a second copy is how this file once carried a wrong method
+    (sort by created_time) months after the correct one was written elsewhere.
 
 shipping_policy:
   quantity_basis: total_product_piece_quantity_excluding_shipping_and_service_lines

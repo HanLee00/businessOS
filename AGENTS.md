@@ -48,9 +48,14 @@ Follow `architecture/approval-boundaries.md`.
 - Preserve unrelated user changes.
 - Prefer small, reviewable changes.
 - Update `automations/catalogue.yaml` when an automation is added, enabled, disabled, or materially revised.
-- Record lasting decisions in `memory/decisions.md`.
-- Record reusable lessons in `memory/lessons.md`; do not dump raw transcripts into memory.
-- Record durable constraints in `memory/known-issues.md`; resolved items are deleted, not archived.
+- **One fact, one file.** Every rule lives in exactly one place; other files link
+  to it and never restate it. `memory/README.md` holds the routing table for
+  which file is the home for which kind of fact. Duplicated facts drift.
+- Follow the close-out step in `EXECUTE.md`: an owner correction or an unexpected
+  API behaviour is written to its home file and committed **before** the task is
+  reported complete, and the file is named in the reply.
+- Do not dump raw transcripts into memory. Write findings at the confidence they
+  were earned at — one observation is not a settled fact.
 - Push to the remote after any instruction change so devices without local access stay current.
 
 ## Completion standard

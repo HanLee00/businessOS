@@ -18,6 +18,22 @@ file access that read this repository over the web.
    Drafting is A2. Sending, posting, and recording payment are A3 and each needs
    its own explicit approval - never inferred from a request to create a draft.
 
+## Close-out — capture before reporting done
+
+Two events mean a rule was just learned. Both require a write **before** the
+task is reported complete, not after:
+
+1. **The owner corrects something.** A correction is a rule. Write it to its
+   single home, commit, push.
+2. **A tool or API behaves unexpectedly.** Write it to that workflow's failure
+   modes, commit, push.
+
+Then name the file you updated in the reply. That last part is not bookkeeping —
+it is how the owner sees the capture happen, and catches it when it does not.
+
+`memory/README.md` states which file is the home for which kind of fact, and the
+one-fact-one-file rule. Never write a rule into a second file; link to its home.
+
 ## Task routing
 
 | Request | Read this |

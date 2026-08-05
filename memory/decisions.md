@@ -60,6 +60,47 @@
 - **Decision:** Automatically add MYR 15 shipping to West Malaysia invoices containing up to and including 100 product pieces. For West Malaysia orders above 100 pieces, ask the owner whether the shipping fee changes before invoice creation. For every East Malaysia order, ask the owner for the shipping fee before invoice creation. If the delivery region is missing or ambiguous, stop and ask.
 - **Reason:** Standardize routine local delivery charges while keeping high-quantity and East Malaysia freight under owner control.
 
+## 2026-08-06 — GitHub is the published library; the local folder is the vault
+
+- **Status:** Confirmed
+- **Decision:** `/Users/hanlee/Developer/businessOS` is the working master. The
+  public GitHub repository `HanLee00/businessOS` is a synced copy that devices
+  without local file access read for instructions. Push after every instruction
+  change. `session-handoff.md` stays local and gitignored.
+- **Reason:** A second device needs the SOPs without needing the filesystem, and
+  a public repo on the same account avoids auth complexity. The repository holds
+  instructions only, so nothing sensitive is published.
+
+## 2026-08-06 — One fact, one file
+
+- **Status:** Confirmed
+- **Decision:** Every rule, gotcha, or convention lives in exactly one file.
+  Other files link to it and never restate it. Execution rules go in
+  `businesses/<id>/document-defaults.yaml`, API gotchas in the relevant
+  `workflows/**/README.md`, durable constraints in `memory/known-issues.md`,
+  rationale in `memory/decisions.md`, verified learnings in `memory/lessons.md`.
+- **Reason:** Duplicated facts drift. The invoice-numbering method was wrong in
+  one of its two homes for days after being fixed in the other.
+
+## 2026-08-06 — Corrections are captured before the task is reported complete
+
+- **Status:** Confirmed
+- **Decision:** When the owner corrects a rule, or an API behaves unexpectedly,
+  write it to its single home and commit before reporting the task done, and
+  state in the reply which file was updated.
+- **Reason:** `memory/` went two days without an entry while the work continued,
+  because recording depended on remembering to. Naming the file in the reply
+  makes a missed capture visible to the owner.
+
+## 2026-08-06 — Gaia item master naming
+
+- **Status:** Confirmed
+- **Decision:** Item names lead with the product code where one exists, then the
+  product name, then GSM - `QD04 Microfibre Round Neck Tshirt - 160gsm`. Where a
+  product line has no code, name it plainly and never invent one.
+- **Reason:** The code is how the owner searches and reconciles; burying or
+  omitting it breaks lookup against the shirt-orders sheet.
+
 ## 2026-08-04 — Gaia shipping uses the fixed invoice-level format
 
 - **Status:** Confirmed

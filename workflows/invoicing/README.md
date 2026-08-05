@@ -38,8 +38,8 @@ financial event beyond the approved draft.
     then a labelled breakdown (size, quantity, etc.) with one line per entry.
     This applies to every order type, not apparel only.
 12. `reference_number` is set — format `<CUSTOMERCODE>-<YYYYMMDD>-<ITEMCODE>` —
-    via the raw PUT proxy (the update wrapper silently drops this field). Confirm
-    it saved by reading the invoice back, not by trusting the write response.
+    via the raw PUT proxy. Confirm it saved by reading the invoice back, but see
+    failure mode 4 below: a negative immediate read is unconfirmed, not failed.
 
 ## Invoice numbering
 
@@ -76,7 +76,7 @@ proxy_execute(
 
 Use the full documented endpoint. A shortened proxy path is rejected and creates nothing.
 
-### Three failure modes already hit in production
+### Failure modes already hit in production
 
 1. **Do not send `invoice_number` on creation.** Zoho rejects it with code 4097
    ("Number entered does not match the auto-generated number") even when
@@ -100,7 +100,20 @@ Use the full documented endpoint. A shortened proxy path is rejected and creates
    `status: draft`, and `is_emailed: false` - but treat a *negative* result from an
    immediate read as unconfirmed, not as failure. Re-check on a later separate call
    before concluding a write failed, and never re-run a create on that basis.
-5. **The workbench's `proxy_execute` session can go stale mid-task**, reporting
+5. **`ZOHO_BOOKS_UPDATE_INVOICE`'s `line_items` schema has no `name` field.**
+   It accepts `description` but not `name`, so renaming an item master does not
+   rename it on an existing invoice line, and an update that looks successful
+   leaves the old line item name in place. Renaming the item via
+   `ZOHO_BOOKS_UPDATE_ITEM` fixes the master only. To fix the invoice line, use
+   the raw proxy `PUT /invoices/{invoice_id}` with `name` set on each line -
+   resending every line in full, per the full-replace rule above. Note also
+   that `ZOHO_BOOKS_UPDATE_ITEM` requires `rate` even when only renaming.
+6. **Do not send `billing_address` or `shipping_address` on invoice creation.**
+   Zoho rejects the request with "Please ensure that the billing_address has
+   less than 100 characters" - it counts the composed address, and a normal
+   Malaysian address exceeds it. Omit both fields entirely and Zoho inherits
+   the customer record's addresses, which is the desired behaviour anyway.
+7. **The workbench's `proxy_execute` session can go stale mid-task**, reporting
    "project API key has been revoked or has expired" even seconds after a fresh
    session was generated. This is not fixed by requesting a new session - it is a
    sandbox-level auth issue distinct from the Zoho connection itself, which keeps
