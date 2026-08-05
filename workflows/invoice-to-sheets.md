@@ -38,8 +38,17 @@ Never write the same invoice twice.
 | Payment status | Destination | Colour on column B | BALANCE |
 |---|---|---|---|
 | Pending | `PENDING` block, first free row below the last entry. No date. | Yellow `#ffff00` | Full invoice total |
-| Fully paid | Month block for the **invoice date** month | Green | Blank |
-| Partially paid | Month block for the **invoice date** month | Orange `#ff9900` | Outstanding balance |
+| Fully paid | Month block for the **payment date** month | Green | Blank |
+| Partially paid | Month block for the **payment date** month | Orange `#ff9900` | Outstanding balance |
+
+Placement follows the **payment date, never the invoice date**. An invoice raised
+in July and paid in August belongs in the AUGUST block. Column A carries that same
+payment date.
+
+Where an invoice has several payments, the row is placed by the **first** payment
+and does not move afterwards. A later final payment turns it green and clears the
+balance in place. Moving it would silently change the total of a month the owner
+may already have closed.
 
 Ask payment status as part of the existing invoice-approval step — not as a second
 gate afterwards. Most invoices are Pending.
@@ -58,7 +67,7 @@ Totals rows are added by the owner at month end, not automatically.
 
 | Col | Field | Source |
 |---|---|---|
-| A | DATE | Zoho `date` → `D/M`. Blank for PENDING rows. |
+| A | DATE | **Payment date** → `D/M`, from the Zoho payment record, not the invoice `date`. Blank for PENDING rows. |
 | B | NAME | `IV<invoice_number> - <customer_name>` |
 | C | BALANCE | Zoho `balance`. Blank when zero. |
 | D | STATUS | **Owner-owned. See below.** |
@@ -107,21 +116,38 @@ CUSTOM MADE POLO CUSTOM POLO`
 If no reasonable match exists, ask rather than guess — an invented code fragments the
 history and breaks the owner's ability to search by product.
 
-## Payment updates
+## Payment updates — Zoho first, always
 
-When a payment is recorded through this workflow: update BALANCE, append the payment
-flag to STATUS, recolour column B, and if the row was in `PENDING`, move it into the
-month block for its invoice date.
+The sheet never leads. Zoho decides what the sheet says, on every payment, without
+exception. When the owner says an invoice has been paid:
+
+1. **Read the invoice in Zoho.** `ZOHO_BOOKS_GET_INVOICE` plus
+   `ZOHO_BOOKS_LIST_INVOICE_PAYMENTS`. The payment may already be recorded — the
+   owner sometimes enters payments in the Zoho UI directly. If it is already there,
+   skip to step 4 and never write a duplicate payment.
+2. **Preview the payment and get approval.** Recording a payment is A3. Show amount,
+   date, mode, reference, and the resulting balance. One confirmation covers both the
+   Zoho write and the sheet update — do not gate them separately.
+3. **Record the payment in Zoho.**
+4. **Re-read Zoho.** Every value written to the sheet comes from this read, not from
+   what was requested in step 2 and not from memory. Amounts get adjusted, payments
+   get entered twice, rounding differs.
+5. **Apply to the sheet** from that read: BALANCE from Zoho `balance`, DATE from the
+   payment record, colour from the resulting state, payment flag appended to STATUS.
+   If the row was in `PENDING`, move it into the month block for the payment date.
 
 Moving a row is insert-then-delete, in that order, re-locating anchors between the two
 steps. `PENDING` sits below every month block, so deleting from it does not disturb any
 month SUM range.
 
+Determine payment state from `payment_made` and `balance`, never from the `status`
+label. Zoho shows "Overdue" rather than "Partially Paid" once the due date has passed,
+even when a partial payment is correctly recorded.
+
 ## Reconcile
 
-Payments recorded directly in the Zoho UI never reach the sheet — the event-driven sync
-only fires on actions taken through this workflow. Invoice `3016` was part-paid this way
-and the sheet had no idea.
+Zoho-first placement prevents drift going forward, but the sheet still holds history
+written before that rule and rows the owner edits by hand.
 
 Run a reconcile on demand, and at month end before totals are added:
 
