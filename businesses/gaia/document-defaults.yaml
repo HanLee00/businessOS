@@ -39,6 +39,22 @@ templates:
     Pick by order content, not by customer. A customer that orders both uniforms
     and gift sets gets one invoice per template as needed.
 
+item_master_naming:
+  rule: >-
+    When a product has a known product code (for example L01, QD04, CRP7200),
+    the item master name leads with that code, then the product name, then the
+    GSM if one was given - never bury the code mid-name or drop it. If no code
+    applies to the product line (for example the Sublimation Polo/Round Neck
+    items), name it plainly with no invented code.
+  examples:
+    - "QD04 Microfibre Round Neck Tshirt - 160gsm"
+    - "CRP7200 Microfibre Polo Tshirt 160gsm"
+    - "L01 Honeycomb Cotton Polo (210gsm)"
+  note: >-
+    GSM placement style (trailing, parenthesised, or dashed) has varied
+    historically - match the existing item if one already exists for that
+    code, otherwise trailing "- <n>gsm" is fine for new items.
+
 line_item_description_format:
   rule: >-
     Never write order specifics as one comma-separated line. Break each distinct
@@ -64,7 +80,7 @@ line_item_description_format:
     "SIZES (<Colour>):" followed by one line per size/qty for that colour
     only, repeated per colour in the order they were requested.
   multi_colour_example: |
-    Round Neck Tshirt 160gsm - Blank (No Print)
+    QD04 Microfibre Round Neck Tshirt - 160gsm - Blank (No Print)
     SIZES (Yellow):
     S - 1
     XL - 1
