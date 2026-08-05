@@ -35,20 +35,27 @@ Never write the same invoice twice.
 
 ## Placement
 
-| Payment status | Destination | Colour on column B | BALANCE |
-|---|---|---|---|
-| Pending | `PENDING` block, first free row below the last entry. No date. | Yellow `#ffff00` | Full invoice total |
-| Fully paid | Month block for the **payment date** month | Green | Blank |
-| Partially paid | Month block for the **payment date** month | Orange `#ff9900` | Outstanding balance |
+| Payment status | Destination | Column A date | Colour on column B | BALANCE |
+|---|---|---|---|---|
+| Pending | `PENDING` block, first free row below the last entry | **Issue date** | Yellow `#ffff00` | Full invoice total |
+| Fully paid | Month block for the **first payment date** month | **Payment date** | Green | Cleared |
+| Partially paid | Month block for the **first payment date** month | **First payment date** | Orange `#ff9900` | Outstanding balance |
 
-Placement follows the **payment date, never the invoice date**. An invoice raised
-in July and paid in August belongs in the AUGUST block. Column A carries that same
-payment date.
+The date in column A changes meaning when the row moves. In `PENDING` it is the
+invoice issue date. On the move into a month block it is overwritten with the
+first payment date, and **never changes again after that**.
 
-Where an invoice has several payments, the row is placed by the **first** payment
-and does not move afterwards. A later final payment turns it green and clears the
-balance in place. Moving it would silently change the total of a month the owner
-may already have closed.
+Block placement follows the **payment date, never the issue date**. An invoice
+raised in July and paid in August belongs in the AUGUST block.
+
+Where an invoice is paid in instalments, the row is placed by the **first**
+payment and does not move afterwards. The final payment only recolours orange to
+green and clears the balance — the row stays where it is and the date stays as
+the first payment date. Moving it would silently change the total of a month the
+owner may already have closed.
+
+The invoice's own issue date in Zoho is never modified — not when payment is
+recorded, not when the row moves. It is read only.
 
 Ask payment status as part of the existing invoice-approval step — not as a second
 gate afterwards. Most invoices are Pending.
@@ -67,7 +74,7 @@ Totals rows are added by the owner at month end, not automatically.
 
 | Col | Field | Source |
 |---|---|---|
-| A | DATE | **Payment date** → `D/M`, from the Zoho payment record, not the invoice `date`. Blank for PENDING rows. |
+| A | DATE | `D/M`. Issue date while in `PENDING`; overwritten with the first payment date on the move into a month block, then fixed. See Placement. |
 | B | NAME | `IV<invoice_number> - <customer_name>` |
 | C | BALANCE | Zoho `balance`. Blank when zero. |
 | D | STATUS | **Owner-owned. See below.** |
@@ -132,9 +139,11 @@ exception. When the owner says an invoice has been paid:
 4. **Re-read Zoho.** Every value written to the sheet comes from this read, not from
    what was requested in step 2 and not from memory. Amounts get adjusted, payments
    get entered twice, rounding differs.
-5. **Apply to the sheet** from that read: BALANCE from Zoho `balance`, DATE from the
-   payment record, colour from the resulting state, payment flag appended to STATUS.
-   If the row was in `PENDING`, move it into the month block for the payment date.
+5. **Apply to the sheet** from that read: BALANCE from Zoho `balance`, colour from
+   the resulting state, payment flag appended to STATUS. If the row was in
+   `PENDING`, move it into the month block for the payment date and overwrite
+   column A with the payment date. If the row is already in a month block, leave
+   column A alone — a follow-up payment never changes the date.
 
 Moving a row is insert-then-delete, in that order, re-locating anchors between the two
 steps. `PENDING` sits below every month block, so deleting from it does not disturb any
