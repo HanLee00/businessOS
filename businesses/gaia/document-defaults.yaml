@@ -57,6 +57,26 @@ line_item_description_format:
     Left sleeve - 2 inch
     Right sleeve - 3.5 inch
     Back - 1.5 inch
+  multi_colour_sizing_rule: >-
+    When one line item covers several distinct colours (for example, blank
+    stock pulled from a colour chart), do not merge all colours into one
+    "Colour - Size" list. Give each colour its own labelled size block:
+    "SIZES (<Colour>):" followed by one line per size/qty for that colour
+    only, repeated per colour in the order they were requested.
+  multi_colour_example: |
+    Round Neck Tshirt 160gsm - Blank (No Print)
+    SIZES (Yellow):
+    S - 1
+    XL - 1
+    SIZES (Neon Orange):
+    S - 1
+    XL - 1
+    SIZES (Orange):
+    S - 1
+    SIZES (White):
+    XL - 1
+    SIZES (Royal):
+    S - 1
 
 reference_number:
   rule: always_set
