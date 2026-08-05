@@ -23,6 +23,7 @@ file access that read this repository over the web.
 | Request | Read this |
 |---|---|
 | Create an invoice | `workflows/invoicing/README.md` **then** `businesses/<id>/document-defaults.yaml` |
+| Log an invoice to the shirt-orders sheet | `workflows/invoice-to-sheets.md` (Gaia apparel orders only) |
 | Create a quotation | `workflows/quotations.md` — **not yet run live, supervise it** |
 | Record a payment / receipt | `workflows/payments.md` — A3, do not run from a remote device |
 | Sales or accounting report | `reporting/pnl-specification.md` — **account mapping unreviewed, see known-issues** |
@@ -44,6 +45,7 @@ are the way they are - they are not execution steps and may lag the live systems
 | Workflow | State |
 |---|---|
 | Gaia invoicing | Verified in production. Safe to run. |
+| Invoice → shirt-orders sheet | Verified on 5 invoices. Owner edits the sheet live — re-locate anchors before every write. |
 | Gaia quotations | Documented, never executed. Run once supervised first. |
 | Payments / receipts | Documented. Owner device only. |
 | Reporting | Blocked on account-mapping review. |

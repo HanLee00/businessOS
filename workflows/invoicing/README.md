@@ -45,9 +45,17 @@ financial event beyond the approved draft.
 
 There is no counter in this repository. Zoho Books owns the sequence.
 
-Read the most recent invoice with `ZOHO_BOOKS_LIST_INVOICES`
-(`sort_column: created_time`, `sort_order: D`, `per_page: 1`), take its
-`invoice_number`, and increment. Confirm the result with the owner before writing.
+Read recent invoices with `ZOHO_BOOKS_LIST_INVOICES` and take the **numeric maximum**
+of `invoice_number`, then increment. Confirm with the owner before writing.
+
+Do **not** sort by `created_time` to find the next number. That returns the most
+recently *created* invoice, which is not necessarily the highest numbered - any
+backdated or out-of-order creation silently produces a duplicate number.
+
+Note also that Zoho's maximum is not automatically the business's maximum. Invoice
+numbers from the previous system (IV2979-IV3011 and earlier) exist in the Gaia Shirt
+Orders sheet but were never in Zoho. Zoho's sequence currently sits above them, so a
+Zoho-only read is safe today. If that ever stops being true, cross-check the sheet.
 
 ## Verified execution path
 
@@ -78,17 +86,20 @@ Use the full documented endpoint. A shortened proxy path is rejected and creates
 2. **`line_items` on update is a full replace, not a merge.** An update that omits
    existing lines silently deletes them from the invoice. Always resend the complete
    array, including `line_item_id` for every line being kept.
-3. **`ZOHO_BOOKS_UPDATE_INVOICE`'s wrapper schema has no `reference_number` field.**
-   Passing it is accepted and reports success but is silently dropped - the value
-   never saves. Set or change `reference_number` through the raw proxy instead:
+3. **`ZOHO_BOOKS_UPDATE_INVOICE`'s wrapper schema has no `reference_number` field,
+   and its behaviour with that field is unreliable.** Two identical calls in one
+   batch produced different outcomes - one invoice saved the reference number, the
+   other did not. Prefer the raw proxy for this field:
    `PUT /invoices/{invoice_id}` with `reference_number` in the body. Always resend
    `line_items` here too, for the same full-replace reason as above.
-4. **Always read the invoice back after writing.** Confirm number, subtotal,
-   shipping, total, line count, line item descriptions match the required
-   format, `reference_number`, `status: draft`, and
-   `is_emailed: false`. A "success" response is not proof a field actually saved -
-   this repository has hit silent-drop failures on both `invoice_number` and
-   `reference_number`.
+4. **An immediate read-back can return stale data.** Zoho has read-after-write lag.
+   A field can read as empty seconds after a write and be correctly set minutes
+   later - this repository recorded a false "silent drop" conclusion that way and
+   documented the wrong cause. Confirm number, subtotal, shipping, total, line
+   count, line item descriptions match the required format, `reference_number`,
+   `status: draft`, and `is_emailed: false` - but treat a *negative* result from an
+   immediate read as unconfirmed, not as failure. Re-check on a later separate call
+   before concluding a write failed, and never re-run a create on that basis.
 5. **The workbench's `proxy_execute` session can go stale mid-task**, reporting
    "project API key has been revoked or has expired" even seconds after a fresh
    session was generated. This is not fixed by requesting a new session - it is a
