@@ -42,10 +42,12 @@ templates:
 line_item_description_format:
   rule: >-
     Never write order specifics as one comma-separated line. Break each distinct
-    detail onto its own line: item/variant name, colour, then a labelled section
-    per detail group (for example "Heat Press Print:" or "HEATPRESS PRINT (DTF):")
-    with one line per position/spec, then a labelled size breakdown with one line
-    per size.
+    detail onto its own line — this applies to any order type, not apparel only:
+    item/variant name (plus any variant detail such as colour or material), then a
+    labelled section per detail group (for example "Heat Press Print:" for
+    apparel, or numbered components for a gift set) with one line per
+    position/component, then a labelled breakdown (size, quantity, etc.) with one
+    line per entry.
   example: |
     Custom Made Polo Tshirt - Lacoste Cotton 220gsm (Navy/Dark Green/Yellow)
     HEATPRESS PRINT (DTF):

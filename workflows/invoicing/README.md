@@ -30,6 +30,16 @@ financial event beyond the approved draft.
 8. Duplicate reference/customer lookup returns no conflict.
 9. Show the owner dates, quantities, rates, shipping, discounts, tax, and total.
 10. `create_draft` proceeds only after explicit approval naming the business.
+11. Every line item description follows `line_item_description_format` in
+    `document-defaults.yaml`: no comma-separated specs. Item/variant name (plus
+    any variant detail such as colour or material) on its own line, then a
+    labelled section per detail group (e.g. "HEATPRESS PRINT:" for apparel, or
+    numbered components for a gift set) with one line per position/component,
+    then a labelled breakdown (size, quantity, etc.) with one line per entry.
+    This applies to every order type, not apparel only.
+12. `reference_number` is set — format `<CUSTOMERCODE>-<YYYYMMDD>-<ITEMCODE>` —
+    via the raw PUT proxy (the update wrapper silently drops this field). Confirm
+    it saved by reading the invoice back, not by trusting the write response.
 
 ## Invoice numbering
 
@@ -74,7 +84,8 @@ Use the full documented endpoint. A shortened proxy path is rejected and creates
    `PUT /invoices/{invoice_id}` with `reference_number` in the body. Always resend
    `line_items` here too, for the same full-replace reason as above.
 4. **Always read the invoice back after writing.** Confirm number, subtotal,
-   shipping, total, line count, `reference_number`, `status: draft`, and
+   shipping, total, line count, line item descriptions match the required
+   format, `reference_number`, `status: draft`, and
    `is_emailed: false`. A "success" response is not proof a field actually saved -
    this repository has hit silent-drop failures on both `invoice_number` and
    `reference_number`.
