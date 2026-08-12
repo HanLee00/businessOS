@@ -120,6 +120,15 @@ Use the full documented endpoint. A shortened proxy path is rejected and creates
    working fine through the standard wrapper tools throughout. If proxy_execute
    fails this way, fall back to wrapper tools for whatever doesn't need the proxy,
    and retry the proxy-only steps in a later session rather than looping on it.
+8. **On the raw proxy, `ignore_auto_number_generation` must be a query
+   parameter, not a body field.** `PUT /invoices/{id}` with
+   `"ignore_auto_number_generation": true` inside the JSON body is rejected
+   with code 4017 ("As auto-generation is enabled, Invoice number cannot be
+   changed"), even though this is exactly the field name the wrapper tool
+   accepts in its body. Pass it as `query_params={'ignore_auto_number_generation':
+   'true', ...}` on the raw call instead. This only affects the raw-proxy
+   renumbering path (invoice numbering above); the wrapper tool's own
+   behaviour with this field is unchanged.
 
 ### Required fields on every Gaia invoice
 
