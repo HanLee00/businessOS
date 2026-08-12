@@ -19,10 +19,20 @@ connection. Never rely on it when the owner needs a customer-labelled file.
 2. Download the bytes inside the Composio workbench — its network reaches the
    presigned storage URL; the assistant's own sandbox does not. Base64-encode
    the bytes and print them.
-3. Decode the base64 in the assistant's own sandbox and save to the outputs
-   folder with the filename `IV #<invoice_number> - <company_name>.pdf`,
+3. **Verify before decoding — do not skip this.** Printing then retyping a
+   large base64 blob into the next tool call is not a reliable copy. A single
+   character can silently flip in transit with no error raised; the file
+   still "looks like" a PDF (correct magic bytes) but fails to open, or opens
+   with a corrupted trailer. In the workbench, split the base64 into ~2000-char
+   chunks and print a sha256 of each chunk plus the full-file sha256 and byte
+   length. After relaying each chunk into the assistant's sandbox, hash it
+   again there and compare before concatenating. Only decode and write the
+   file once every chunk hash and the whole-file hash match. If any chunk
+   fails, re-fetch that one chunk — do not silently ship an unverified file.
+4. Decode the verified base64 in the assistant's own sandbox and save to the
+   outputs folder with the filename `IV #<invoice_number> - <company_name>.pdf`,
    matching `file_naming` in `businesses/gaia/document-defaults.yaml`.
-4. Share it via `present_files` so it appears as a file card in the chat for
+5. Share it via `present_files` so it appears as a file card in the chat for
    the owner to forward on themselves — WhatsApp or anywhere else.
 
 ## Scope
