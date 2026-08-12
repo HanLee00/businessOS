@@ -164,4 +164,5 @@ how to actually set it.
 
 Return: selected business and organization, calculated totals, whether an external
 write occurred, and for an approved draft the Zoho invoice ID, number, and status.
-State plainly which actions were not performed.
+State plainly which actions were not performed. After a draft is created, offer
+to generate and share its customer-labelled PDF — see `workflows/pdf-delivery.md`.

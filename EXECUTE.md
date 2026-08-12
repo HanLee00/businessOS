@@ -40,6 +40,7 @@ one-fact-one-file rule. Never write a rule into a second file; link to its home.
 |---|---|
 | Create an invoice | `workflows/invoicing/README.md` **then** `businesses/<id>/document-defaults.yaml` |
 | Log an invoice to the shirt-orders sheet | `workflows/invoice-to-sheets.md` (Gaia apparel orders only) |
+| Generate/share a PDF of an invoice, quotation, or receipt | `workflows/pdf-delivery.md` — offer proactively whenever one is discussed |
 | Create a quotation | `workflows/quotations.md` — **not yet run live, supervise it** |
 | Record a payment / receipt | `workflows/payments.md` — A3, do not run from a remote device |
 | Sales or accounting report | `reporting/pnl-specification.md` — **account mapping unreviewed, see known-issues** |
