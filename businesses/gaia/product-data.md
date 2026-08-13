@@ -5,6 +5,17 @@ needs a GWW product code, supplier, specification, confidential supplier cost, s
 band, or large-size price uplift. This file contains routing and calculation rules
 only; Business OS never copies the product catalogue into this repository.
 
+## Product-domain boundary
+
+- Apparel, garments, uniforms, and workwear use the GWW sources documented below.
+- Gifts and merchandise use Gaia Gifts Co product sources, not GWW. That source is
+  not yet configured in Business OS and will be added in a future session. Until it
+  exists, stop and ask for the Gaia Gifts Co source rather than searching GWW or
+  guessing product details, costs, or surcharges.
+
+This boundary determines where product facts come from. Invoice template selection
+still follows `document-defaults.yaml` based on the order's actual contents.
+
 ## Sources and precedence
 
 ### Local master
