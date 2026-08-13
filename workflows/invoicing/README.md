@@ -129,6 +129,26 @@ Use the full documented endpoint. A shortened proxy path is rejected and creates
    'true', ...}` on the raw call instead. This only affects the raw-proxy
    renumbering path (invoice numbering above); the wrapper tool's own
    behaviour with this field is unchanged.
+9. **Updating a sent (non-draft) invoice requires an explicit reason.** A raw
+   `PUT /invoices/{invoice_id}` against an invoice whose status is past `draft`
+   (e.g. `sent`, `overdue`, `partially_paid`) is rejected with code 110701
+   ("Please enter the reason for updating a sent invoice") unless a `reason`
+   is supplied. Verified working supplying `reason` as both a query parameter
+   and a body field on the same call (invoice 3016, Gaia org); not yet isolated
+   to confirm whether only one of the two is actually required. This only
+   applies to editing an *existing*, already-issued invoice - not relevant to
+   `create_draft` on a new invoice.
+10. **A new line item added via `item_id` alone inherits the item master's
+    default name, not a sibling line's customised name.** Two lines can share
+    the same `item_id` but show different `name` values if an existing line's
+    `name` was customised at creation time away from the item master default
+    (e.g. `Custom Made Polo Tshirt - Lacoste Cotton 220gsm` on an existing
+    line vs. the item master's plain `Custom Made Polo Tshirt`). Adding a new
+    line for that same item without an explicit `name` reverts to the item
+    master's default, producing two differently-labelled lines for what is
+    visibly the same product on the customer-facing PDF. Always set `name`
+    explicitly on every line - not just `description` and `rate` - when
+    splitting an existing customised line item into multiple rate tiers.
 
 ### Required fields on every Gaia invoice
 
