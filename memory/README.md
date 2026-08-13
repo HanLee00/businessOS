@@ -13,6 +13,7 @@ Where a thing belongs:
 | Knowledge | Home | Read when |
 |---|---|---|
 | Execution rules — format, template, rate, naming | `businesses/<id>/document-defaults.yaml` | Every run |
+| Gaia/GWW product, supplier-cost, size-band, and uplift lookup | `businesses/gaia/product-data.md` | Every relevant quote, invoice, costing, or margin lookup |
 | API behaviour and failure modes | `workflows/<name>/README.md` | Every run of that workflow |
 | Durable unresolved constraints | `memory/known-issues.md` | First-time workflows |
 | Why a choice was made | `memory/decisions.md` | On revisit |

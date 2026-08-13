@@ -2,7 +2,7 @@
 
 ## Quote to cash
 
-1. Validate customer, products/services, pricing, delivery, deposit, lead time, currency, tax, and expiry.
+1. Validate customer, products/services, pricing, delivery, deposit, lead time, currency, tax, and expiry. When a GWW code, supplier cost, size band, or large-size uplift is relevant, resolve it through `product-data.md` before finalizing customer rates.
 2. Resolve shipping before creating an invoice: automatically add MYR 15 for West Malaysia orders up to and including 100 product pieces; ask the owner whether the fee changes for West Malaysia orders above 100 pieces; ask the owner for the fee for every East Malaysia order; ask when the destination is unclear. Always use Zoho's invoice-level Shipping Charges field below product subtotal; never add shipping as an item row.
 3. Create a draft quotation only in Zoho organization `933894797` after the applicable approval gate.
 4. Return the quotation number/status/PDF preview for review.

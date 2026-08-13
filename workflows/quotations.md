@@ -4,6 +4,10 @@ Primary initial business: Gaia Gifts Co (`933894797`).
 
 Required inputs: selected business, existing customer or approved customer creation, line items, quantities, rates, currency, tax treatment, delivery, deposit/payment terms, lead time, expiry, and notes.
 
+For Gaia/GWW product codes, supplier costs, size bands, or large-size uplifts, follow
+`businesses/gaia/product-data.md` before calculating customer line rates. The GWW
+supplier cost is not the client selling price.
+
 Stages:
 
 1. Validate inputs and calculate totals locally.

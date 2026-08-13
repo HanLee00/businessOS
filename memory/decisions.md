@@ -106,3 +106,17 @@
 - **Status:** Confirmed
 - **Decision:** Enter every Gaia shipping fee in Zoho's invoice-level Shipping Charges field so it appears below product subtotal. Never create shipping as a product/service item row. Treat the previously created shipping item as legacy and do not use it.
 - **Reason:** Keeps product lines clean and ensures every Gaia invoice follows the owner's fixed financial-summary format.
+
+## 2026-08-13 — GWW product data remains external to Business OS
+
+- **Status:** Confirmed
+- **Decision:** Route Gaia/GWW product specifications, confidential supplier costs,
+  size bands, and large-size uplifts through `businesses/gaia/product-data.md`. The
+  local GWW product database is the master. Its private Google Sheet is a mobile
+  read-only fallback within its verified coverage. Client base selling prices come
+  from the owner or an approved quote; a size uplift adds the supplier-cost
+  difference between the requested size band and base band, without an extra markup
+  unless the owner instructs otherwise.
+- **Reason:** Business OS needs dependable lookup instructions without duplicating a
+  time-sensitive product catalogue or confusing confidential supplier costs with
+  customer-facing selling prices.
