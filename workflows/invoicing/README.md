@@ -165,6 +165,15 @@ Use the full documented endpoint. A shortened proxy path is rejected and creates
     not evidence that the invoice is missing: never re-run the create. Preserve the
     successful creation response and verify with `proxy_execute` using
     `GET /books/v3/invoices/{invoice_id}` plus the explicit `organization_id`.
+13. **An existing invoice keeps its own billing-address snapshot when the
+    customer's billing address is updated.** For an approved existing draft whose
+    empty Bill To block needs the missing-address fallback, update the customer
+    first, then call `ZOHO_BOOKS_UPDATE_INVOICE_BILLING_ADDRESS` separately. The
+    wrapper exposes neither `attention` nor `phone`, so set `address` to the contact
+    person's name and phone on separate lines, and set `street2` to the email.
+    Verified on 2026-08-13 by fetching the invoice as HTML: all four Bill To lines
+    rendered in the required order. Re-read the invoice afterwards and confirm its
+    number, status, total, balance, and line count are unchanged.
 
 ### Required fields on every Gaia invoice
 

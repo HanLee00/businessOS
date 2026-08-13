@@ -88,9 +88,10 @@ bill_to_block:
       Do not pass billing_address on the invoice-create call. Populate the Zoho
       contact first and let the invoice inherit it.
     single_source_for_invoice_address_api_failure: workflows/invoicing/README.md#failure-modes-already-hit-in-production
+    single_source_for_existing_invoice_refresh: workflows/invoicing/README.md#failure-modes-already-hit-in-production
     verification_status: >-
-      Owner-approved default on 2026-08-13; the exact rendered fallback order
-      still needs one supervised live draft update before it is called verified.
+      Verified on a supervised live Gaia draft on 2026-08-13. Zoho rendered the
+      company name followed by contact person, phone, and email on separate lines.
 
 line_item_description_format:
   rule: >-
