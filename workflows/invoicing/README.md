@@ -151,6 +151,13 @@ Use the full documented endpoint. A shortened proxy path is rejected and creates
     visibly the same product on the customer-facing PDF. Always set `name`
     explicitly on every line - not just `description` and `rate` - when
     splitting an existing customised line item into multiple rate tiers.
+11. **`ZOHO_BOOKS_CREATE_CONTACT` advertises communication-preference fields
+    that the live Books API can reject.** A Gaia customer-create call containing
+    `contact_persons[].communication_preference.is_sms_enabled` failed with
+    `Invalid Element is_sms_enabled`, even though that field was present in the
+    connector schema. Retrying the same approved customer without the optional
+    `communication_preference` object succeeded. Omit that object unless its live
+    behavior is separately re-verified; `enable_portal: false` remains supported.
 
 ### Required fields on every Gaia invoice
 
