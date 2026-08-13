@@ -38,7 +38,7 @@ Never write the same invoice twice.
 | Payment status | Destination | Column A date | Colour on column B | BALANCE |
 |---|---|---|---|---|
 | Pending | `PENDING` block, first free row below the last entry | **Issue date** | Yellow `#ffff00` | Full invoice total |
-| Fully paid | Month block for the **first payment date** month | **Payment date** | Green | Cleared |
+| Fully paid | Month block for the **first payment date** month | **Payment date** | Green `#00ff00` | Cleared |
 | Partially paid | Month block for the **first payment date** month | **First payment date** | Orange `#ff9900` | Outstanding balance |
 
 The date in column A changes meaning when the row moves. In `PENDING` it is the

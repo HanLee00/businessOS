@@ -63,8 +63,8 @@ are the way they are - they are not execution steps and may lag the live systems
 | Workflow | State |
 |---|---|
 | Gaia invoicing | Verified in production. Safe to run. |
-| Invoice → shirt-orders sheet | Verified on 5 invoices. Owner edits the sheet live — re-locate anchors before every write. |
+| Invoice → shirt-orders sheet | Verified on 6 invoices, including a paid-row move. Owner edits the sheet live — re-locate anchors before every write. |
 | Gaia quotations | Documented, never executed. Run once supervised first. |
-| Payments / receipts | Documented. Owner device only. |
+| Payments / receipts | One supervised Gaia payment verified. A3 approval required; owner device only. |
 | Reporting | Blocked on account-mapping review. |
 | Oh! Venus writes | Untested. |
