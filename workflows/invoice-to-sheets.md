@@ -78,7 +78,7 @@ Totals rows are added by the owner at month end, not automatically.
 | B | NAME | `IV<invoice_number> - <customer_name>` |
 | C | BALANCE | Zoho `balance`. Blank when zero. |
 | D | STATUS | **Owner-owned. See below.** |
-| E | PHONE | Customer phone — **always write as text** |
+| E | PHONE | Customer phone from current supplied evidence/owner input, otherwise the Zoho customer record — **always write as text** |
 | F | PRODUCT | `X<qty> <CODE>`, comma-separated per distinct item |
 | G | SUPPLIER | Not in Zoho. Blank unless the owner states it. |
 | H | PRICE PER PC | Line rates, pipe-separated (`40 | 26.4`) |
@@ -100,6 +100,12 @@ invoice is part-paid, write `PROCESSING, HALF-PAID` as the safe default.
 Malaysian local numbers begin with `0`. Writing them with `USER_ENTERED` parses them
 as a number and silently strips the leading zero — `0176688436` becomes `176688436`.
 Write phone with `value_input_option: RAW`, and verify on read-back.
+
+Use a phone number explicitly visible in the current owner-supplied order or payment
+evidence even when the Zoho customer phone is blank. Otherwise use the Zoho customer
+record. A prior exact-customer sheet row is only a fallback clue: if it is malformed,
+shorter, or conflicts with current evidence, do not copy it — use the current evidence
+or ask the owner.
 
 ### Product codes
 
@@ -136,9 +142,10 @@ exception. When the owner says an invoice has been paid:
    date, mode, reference, and the resulting balance. One confirmation covers both the
    Zoho write and the sheet update — do not gate them separately.
 3. **Record the payment in Zoho.**
-4. **Re-read Zoho.** Every value written to the sheet comes from this read, not from
-   what was requested in step 2 and not from memory. Amounts get adjusted, payments
-   get entered twice, rounding differs.
+4. **Re-read Zoho.** Every financial/payment value written to the sheet comes from
+   this read, not from what was requested in step 2 and not from memory. Amounts get
+   adjusted, payments get entered twice, rounding differs. STATUS remains owner-owned;
+   PHONE, SUPPLIER, and COST use their documented non-financial sources above.
 5. **Apply to the sheet** from that read: BALANCE from Zoho `balance`, colour from
    the resulting state, payment flag appended to STATUS. If the row was in
    `PENDING`, move it into the month block for the payment date and overwrite
