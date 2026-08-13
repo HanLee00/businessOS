@@ -158,6 +158,13 @@ Use the full documented endpoint. A shortened proxy path is rejected and creates
     connector schema. Retrying the same approved customer without the optional
     `communication_preference` object succeeded. Omit that object unless its live
     behavior is separately re-verified; `enable_portal: false` remains supported.
+12. **Observed once on 2026-08-13: a standard `ZOHO_BOOKS_GET_INVOICE` call
+    through Composio multi-execute failed with upstream MCP error `-32000`
+    immediately after a successful invoice create.** A raw-proxy GET of the same
+    invoice then succeeded. This is an unverified connector-transport observation,
+    not evidence that the invoice is missing: never re-run the create. Preserve the
+    successful creation response and verify with `proxy_execute` using
+    `GET /books/v3/invoices/{invoice_id}` plus the explicit `organization_id`.
 
 ### Required fields on every Gaia invoice
 
