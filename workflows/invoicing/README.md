@@ -120,6 +120,35 @@ Use the full documented endpoint. A shortened proxy path is rejected and creates
    working fine through the standard wrapper tools throughout. If proxy_execute
    fails this way, fall back to wrapper tools for whatever doesn't need the proxy,
    and retry the proxy-only steps in a later session rather than looping on it.
+8. **On the raw proxy, `ignore_auto_number_generation` must be a query
+   parameter, not a body field.** `PUT /invoices/{id}` with
+   `"ignore_auto_number_generation": true` inside the JSON body is rejected
+   with code 4017 ("As auto-generation is enabled, Invoice number cannot be
+   changed"), even though this is exactly the field name the wrapper tool
+   accepts in its body. Pass it as `query_params={'ignore_auto_number_generation':
+   'true', ...}` on the raw call instead. This only affects the raw-proxy
+   renumbering path (invoice numbering above); the wrapper tool's own
+   behaviour with this field is unchanged.
+9. **Updating a sent (non-draft) invoice requires an explicit reason.** A raw
+   `PUT /invoices/{invoice_id}` against an invoice whose status is past `draft`
+   (e.g. `sent`, `overdue`, `partially_paid`) is rejected with code 110701
+   ("Please enter the reason for updating a sent invoice") unless a `reason`
+   is supplied. Verified working supplying `reason` as both a query parameter
+   and a body field on the same call (invoice 3016, Gaia org); not yet isolated
+   to confirm whether only one of the two is actually required. This only
+   applies to editing an *existing*, already-issued invoice - not relevant to
+   `create_draft` on a new invoice.
+10. **A new line item added via `item_id` alone inherits the item master's
+    default name, not a sibling line's customised name.** Two lines can share
+    the same `item_id` but show different `name` values if an existing line's
+    `name` was customised at creation time away from the item master default
+    (e.g. `Custom Made Polo Tshirt - Lacoste Cotton 220gsm` on an existing
+    line vs. the item master's plain `Custom Made Polo Tshirt`). Adding a new
+    line for that same item without an explicit `name` reverts to the item
+    master's default, producing two differently-labelled lines for what is
+    visibly the same product on the customer-facing PDF. Always set `name`
+    explicitly on every line - not just `description` and `rate` - when
+    splitting an existing customised line item into multiple rate tiers.
 
 ### Required fields on every Gaia invoice
 
@@ -155,4 +184,5 @@ how to actually set it.
 
 Return: selected business and organization, calculated totals, whether an external
 write occurred, and for an approved draft the Zoho invoice ID, number, and status.
-State plainly which actions were not performed.
+State plainly which actions were not performed. After a draft is created, offer
+to generate and share its customer-labelled PDF — see `workflows/pdf-delivery.md`.
