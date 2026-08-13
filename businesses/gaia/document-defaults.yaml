@@ -55,6 +55,43 @@ item_master_naming:
     historically - match the existing item if one already exists for that
     code, otherwise trailing "- <n>gsm" is fine for new items.
 
+bill_to_block:
+  company_name_rule: Always keep the customer company name as the first line.
+  physical_address_present:
+    rule: Use the customer's real billing address recorded in Zoho.
+  physical_address_missing:
+    rule: >-
+      When no real billing address was supplied, fill the otherwise-empty Bill
+      To block with every customer contact detail the owner supplied. Include
+      only known values and never invent a placeholder.
+    customer_facing_order:
+      - contact_person_name
+      - phone
+      - email
+    zoho_contact_billing_address_mapping:
+      attention: contact_person_name
+      address: phone
+      street2: email
+    populate_on: customer_contact_before_invoice_creation
+    phone_format: Preserve the supplied phone number exactly, including a leading zero.
+    non_address_fulfilment_phrases:
+      - self collection
+      - no shipping fee
+    fulfilment_rule: >-
+      Fulfilment phrases belong in the invoice notes and shipping charge; never
+      store them as the customer's physical address.
+    approval_rule: >-
+      Show the proposed Bill To lines in the invoice preview. Creating or
+      updating the customer contact with this fallback is covered only when it
+      is included in the approved draft action.
+    invoice_creation_rule: >-
+      Do not pass billing_address on the invoice-create call. Populate the Zoho
+      contact first and let the invoice inherit it.
+    single_source_for_invoice_address_api_failure: workflows/invoicing/README.md#failure-modes-already-hit-in-production
+    verification_status: >-
+      Owner-approved default on 2026-08-13; the exact rendered fallback order
+      still needs one supervised live draft update before it is called verified.
+
 line_item_description_format:
   rule: >-
     Never write order specifics as one comma-separated line. Break each distinct
