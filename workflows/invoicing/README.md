@@ -20,26 +20,24 @@ financial event beyond the approved draft.
 3. Currency and tax treatment match the organization.
 4. Contact and item references resolve to existing records, or a creation plan is
    separately approved.
-5. For Gaia/GWW product codes, supplier costs, size bands, or large-size uplifts,
-   follow `businesses/gaia/product-data.md` before calculating customer line rates.
-6. Resolve delivery region and total product-piece quantity, then apply the
+5. Resolve delivery region and total product-piece quantity, then apply the
    business shipping policy.
-7. Gaia shipping: West Malaysia at 100 pieces or fewer gets MYR 15 automatically in
+6. Gaia shipping: West Malaysia at 100 pieces or fewer gets MYR 15 automatically in
    Zoho's invoice-level `shipping_charge` field. Above 100 pieces, ask the owner.
    East Malaysia requires an owner-supplied fee. Ambiguous destination stops for
    clarification. Shipping is **never** a line item.
-8. Read the next invoice number live from Zoho (see below). Never use a cached number.
-9. Duplicate reference/customer lookup returns no conflict.
-10. Show the owner dates, quantities, rates, shipping, discounts, tax, and total.
-11. `create_draft` proceeds only after explicit approval naming the business.
-12. Every line item description follows `line_item_description_format` in
+7. Read the next invoice number live from Zoho (see below). Never use a cached number.
+8. Duplicate reference/customer lookup returns no conflict.
+9. Show the owner dates, quantities, rates, shipping, discounts, tax, and total.
+10. `create_draft` proceeds only after explicit approval naming the business.
+11. Every line item description follows `line_item_description_format` in
     `document-defaults.yaml`: no comma-separated specs. Item/variant name (plus
     any variant detail such as colour or material) on its own line, then a
     labelled section per detail group (e.g. "HEATPRESS PRINT:" for apparel, or
     numbered components for a gift set) with one line per position/component,
     then a labelled breakdown (size, quantity, etc.) with one line per entry.
     This applies to every order type, not apparel only.
-13. `reference_number` is set — format `<CUSTOMERCODE>-<YYYYMMDD>-<ITEMCODE>` —
+12. `reference_number` is set — format `<CUSTOMERCODE>-<YYYYMMDD>-<ITEMCODE>` —
     via the raw PUT proxy. Confirm it saved by reading the invoice back, but see
     failure mode 4 below: a negative immediate read is unconfirmed, not failed.
 
@@ -151,29 +149,17 @@ Use the full documented endpoint. A shortened proxy path is rejected and creates
     visibly the same product on the customer-facing PDF. Always set `name`
     explicitly on every line - not just `description` and `rate` - when
     splitting an existing customised line item into multiple rate tiers.
-11. **`ZOHO_BOOKS_CREATE_CONTACT` advertises communication-preference fields
-    that the live Books API can reject.** A Gaia customer-create call containing
-    `contact_persons[].communication_preference.is_sms_enabled` failed with
-    `Invalid Element is_sms_enabled`, even though that field was present in the
-    connector schema. Retrying the same approved customer without the optional
-    `communication_preference` object succeeded. Omit that object unless its live
-    behavior is separately re-verified; `enable_portal: false` remains supported.
-12. **Observed once on 2026-08-13: a standard `ZOHO_BOOKS_GET_INVOICE` call
-    through Composio multi-execute failed with upstream MCP error `-32000`
-    immediately after a successful invoice create.** A raw-proxy GET of the same
-    invoice then succeeded. This is an unverified connector-transport observation,
-    not evidence that the invoice is missing: never re-run the create. Preserve the
-    successful creation response and verify with `proxy_execute` using
-    `GET /books/v3/invoices/{invoice_id}` plus the explicit `organization_id`.
-13. **An existing invoice keeps its own billing-address snapshot when the
-    customer's billing address is updated.** For an approved existing draft whose
-    empty Bill To block needs the missing-address fallback, update the customer
-    first, then call `ZOHO_BOOKS_UPDATE_INVOICE_BILLING_ADDRESS` separately. The
-    wrapper exposes neither `attention` nor `phone`, so set `address` to the contact
-    person's name and phone on separate lines, and set `street2` to the email.
-    Verified on 2026-08-13 by fetching the invoice as HTML: all four Bill To lines
-    rendered in the required order. Re-read the invoice afterwards and confirm its
-    number, status, total, balance, and line count are unchanged.
+11. **`ZOHO_BOOKS_LIST_INVOICES`'s `customer_id` filter is typed `integer` and
+    silently loses precision on real Zoho contact IDs.** Zoho's 18-digit numeric
+    IDs (e.g. `726115000000124002`) exceed what a JSON/JS float64 can represent
+    exactly. Passing one as the schema's `integer`-typed `customer_id` silently
+    truncates it (`...124002` became `...124000` in the applied
+    `search_criteria`, confirmed by inspecting the response) and returns zero
+    results with no error - reading as "this customer has no invoices" when the
+    truncated ID just doesn't match any real contact. Filter by `customer_name`
+    (string) instead, or use `search_text`, when looking up a specific
+    customer's invoice history. Likely affects any other wrapper tool with a
+    large Zoho ID typed as `integer`, not just this one - not yet surveyed.
 
 ### Required fields on every Gaia invoice
 
