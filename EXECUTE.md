@@ -43,7 +43,7 @@ one-fact-one-file rule. Never write a rule into a second file; link to its home.
 | Generate/share a PDF of an invoice, quotation, or receipt | `workflows/pdf-delivery.md` — offer proactively whenever one is discussed |
 | Create a quotation | `workflows/quotations.md`; for Gaia/GWW product facts, costs, or size uplifts also read `businesses/gaia/product-data.md` — **not yet run live, supervise it** |
 | Look up a Gaia/GWW product, supplier cost, or size uplift | `businesses/gaia/product-data.md` |
-| Record a payment / receipt | `workflows/payments.md` — A3, do not run from a remote device |
+| Record a payment / receipt | `workflows/payments.md` — A3 |
 | Sales or accounting report | `reporting/pnl-specification.md` — **account mapping unreviewed, see known-issues** |
 | Oh! Venus commerce accounting | `workflows/ecommerce-accounting.md` |
 | Customer email | `workflows/customer-support.md` |
@@ -65,6 +65,6 @@ are the way they are - they are not execution steps and may lag the live systems
 | Gaia invoicing | Verified in production. Safe to run. |
 | Invoice → shirt-orders sheet | Verified on 6 invoices, including a paid-row move. Owner edits the sheet live — re-locate anchors before every write. |
 | Gaia quotations | Documented, never executed. Run once supervised first. |
-| Payments / receipts | One supervised Gaia payment verified. A3 approval required; owner device only. |
+| Payments / receipts | A3 approval required. Remote-device restriction lifted 2026-08-18 by owner instruction; Gaia payments (invoices 3018, 3023, 3029) recorded from a cloud session under A3 approval. |
 | Reporting | Blocked on account-mapping review. |
 | Oh! Venus writes | Untested. |
