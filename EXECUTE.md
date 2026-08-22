@@ -18,6 +18,32 @@ file access that read this repository over the web.
    Drafting is A2. Sending, posting, and recording payment are A3 and each needs
    its own explicit approval - never inferred from a request to create a draft.
 
+## Remote or phone-only sessions
+
+A session with no local filesystem access (phone app, any device other than the
+owner's Mac) depends entirely on what is actually pushed to `HanLee00/businessOS`
+and on its own client having a live, authenticated connection to each external
+system (Zoho Books, Shopify, Gmail, Sheets) — connector state is account-level via
+Composio/the platform's own connectors, not tied to any one device, but it is
+tied to which client the connection was set up in. Before trusting these
+instructions or running a workflow from such a session:
+
+1. Confirm the instructions being read are current: check that this file and the
+   relevant workflow file carry no unresolved "uncommitted" or "unpushed" note
+   from the owner's last session, and if in doubt, ask the owner to confirm the
+   local vault is pushed before proceeding.
+2. Confirm the specific action's required connector is actually reachable from
+   the current client — do not assume parity with a different client (e.g. a
+   Composio-backed Zoho Books connection authenticated for one app is not
+   automatically available in another). A read that fails or a tool that is
+   simply absent from the current session means stop and say so, not fall back
+   to a different, unverified execution path.
+3. For Gaia apparel product/cost lookups specifically: the mobile-reachable
+   source (`businesses/gaia/product-data.md`'s Sheet mirror) currently covers a
+   subset of suppliers only. See that file for current coverage before quoting
+   or invoicing a supplier not yet mirrored — stop and ask rather than
+   estimating a supplier cost.
+
 ## Close-out — capture before reporting done
 
 Two events mean a rule was just learned. Both require a write **before** the
@@ -30,6 +56,13 @@ task is reported complete, not after:
 
 Then name the file you updated in the reply. That last part is not bookkeeping —
 it is how the owner sees the capture happen, and catches it when it does not.
+
+**A task that edited any instruction file is not complete until `git push`
+has actually succeeded** — not staged, not committed, pushed. A local-only
+commit is invisible to every device without local access; per the "Remote or
+phone-only sessions" section above, that includes the owner's phone. If push
+fails or is skipped, say so explicitly in the reply rather than reporting the
+task done.
 
 `memory/README.md` states which file is the home for which kind of fact, and the
 one-fact-one-file rule. Never write a rule into a second file; link to its home.

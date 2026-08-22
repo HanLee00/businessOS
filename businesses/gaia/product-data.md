@@ -58,6 +58,13 @@ code is present and its source/effective date is acceptable. If the code is abse
 the supplier is not yet mirrored, or the Sheet conflicts with the local master or
 supplier confirmation, stop and surface the limitation rather than guessing.
 
+**Planned:** extend the mirror to cover Rightway, Esping/Le'fonse, and Megah
+Textile at parity with Oren Sport, so a phone-only session isn't blocked on
+those suppliers. Owner decision 2026-08-22, not yet done — needs a session with
+Google Sheets range-write access plus the local `prices.csv`/`products.csv` rows
+for those three suppliers. Until this is done, the coverage gap above is real,
+not just a caution; see `memory/known-issues.md`.
+
 ## Selling price, supplier cost, and size uplift
 
 These are different values and must never be substituted for one another:

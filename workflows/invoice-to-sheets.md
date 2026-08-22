@@ -10,6 +10,13 @@ One-way only: Zoho → Sheets. Nothing in the sheet ever writes back to Zoho.
   `Standard Template` (uniforms/clothing) → log. `Gift` template → skip.
   Non-apparel *lines inside* an apparel order are included; a purely gift/merch
   order is skipped entirely.
+- **Exception — same-customer continuity:** log a `Gift`-template order anyway if
+  that customer already has an apparel order in this sheet. Owner instruction,
+  2026-08-14: invoice 3028 (Garuda Klasik, Polymesh Flag, Gift template) was added
+  because Garuda Klasik already had a shirt order (3019) tracked here. This is a
+  per-customer exception, not a blanket "log every Gift order" change — a
+  Gift-template order for a customer with no apparel history still gets skipped.
+  If it's unclear whether a customer qualifies, ask rather than assume.
 - **Target:** spreadsheet `1tw_uLdDpnGAEAhlZwyRDA_a_EZvs3crLDYyKVVIsaQU`, tab `2026 SHIRTS`.
 
 ## Rule 1 — never trust a remembered row number
@@ -124,7 +131,7 @@ Codes already in use (not exhaustive — check column F before inventing one):
 `L01 L02 L03 L17 QD04 QD06 QD33 QD54 QD73 QD74 QD79 NHB2400 NHB2401 NHB2424
 HC01 HC24 HC27 TT02 TT03 JK02 MH01 RC01 RC03 RC12 AG180 AG3220 CRP1600 CRP3100
 CRP7200 M34 M38 M2000 US16 US1300 US1900 CP01 CP02 LT27 SUB POLO SUB RN SUB TSHIRT
-CUSTOM MADE POLO CUSTOM POLO`
+CUSTOM MADE POLO CUSTOM POLO WIND FLAG SUB FLAG POLYMESH FLAG`
 
 If no reasonable match exists, ask rather than guess — an invented code fragments the
 history and breaks the owner's ability to search by product.

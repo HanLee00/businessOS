@@ -107,6 +107,37 @@
 - **Decision:** Enter every Gaia shipping fee in Zoho's invoice-level Shipping Charges field so it appears below product subtotal. Never create shipping as a product/service item row. Treat the previously created shipping item as legacy and do not use it.
 - **Reason:** Keeps product lines clean and ensures every Gaia invoice follows the owner's fixed financial-summary format.
 
+## 2026-08-22 — Remote/phone-only sessions get an explicit preflight, and push is a hard close-out gate
+
+- **Status:** Confirmed
+- **Decision:** Added a "Remote or phone-only sessions" section to `EXECUTE.md`
+  requiring confirmation of (1) instructions actually pushed, (2) the required
+  connector reachable from the *current* client (no assumed parity between
+  the owner's Claude and ChatGPT mobile apps), (3) Gaia product-data mirror
+  coverage checked before quoting/invoicing an unmirrored supplier. Also
+  upgraded the existing close-out push rule from guidance to a hard gate: a
+  task that edited an instruction file is not complete until `git push`
+  actually succeeds.
+- **Reason:** An audit found the local vault 2 commits and 3 files ahead of
+  `origin/main`, including a safety-relevant fix (the customer-support
+  send-approval loophole closed after the 2026-08-22 Oh! Venus #1163
+  incident) that a remote/phone session would not have seen. The owner
+  intends to run workflows from both Claude and ChatGPT mobile apps while
+  local devices are offline; unpushed instructions or an unverified connector
+  make "correct every time" impossible to guarantee.
+
+## 2026-08-22 — Extend the GWW mobile Sheet mirror to all four suppliers
+
+- **Status:** Confirmed target; not yet done
+- **Decision:** Extend the private Sheet mirror in `businesses/gaia/product-data.md`
+  to cover Rightway, Esping/Le'fonse, and Megah Textile at the same coverage as
+  Oren Sport, so phone-only sessions aren't blocked on those suppliers.
+- **Reason:** Phone-only reliability for Gaia apparel invoicing/quoting
+  currently has a real gap for 3 of 4 suppliers — the workflow correctly stops
+  and asks rather than guessing, but that means it isn't yet "runs correctly
+  every time" from a phone for those suppliers. Recorded in
+  `memory/known-issues.md` until the mirror is populated.
+
 ## 2026-08-13 — GWW product data remains external to Business OS
 
 - **Status:** Confirmed
