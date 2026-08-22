@@ -107,6 +107,21 @@
 - **Decision:** Enter every Gaia shipping fee in Zoho's invoice-level Shipping Charges field so it appears below product subtotal. Never create shipping as a product/service item row. Treat the previously created shipping item as legacy and do not use it.
 - **Reason:** Keeps product lines clean and ensures every Gaia invoice follows the owner's fixed financial-summary format.
 
+## 2026-08-22 — Oh! Venus Shopify store identifier confirmed: ohvenus.shop
+
+- **Status:** Confirmed
+- **Decision:** Register `ohvenus.shop` (myshopify domain
+  `9s4j4j-8d.myshopify.com`) as the Oh! Venus Shopify store in
+  `integrations/map.yaml` and `businesses/ohvenus/profile.yaml`
+  (`access_via: composio`). Removed `shopify_store_identifier` from that
+  profile's `required_confirmation` list, now resolved. Google Drive's
+  `awaiting_root_folder` is left as-is — nothing in Business OS uses it yet.
+- **Reason:** Same class of gap as the mailbox fix above — `map.yaml` said
+  `awaiting_store_identifier` despite the store already working live through
+  Composio. Verified against the live Composio Shopify connection
+  (`shopify_pitier-hexyl`, shop id `82498158804`, domain `ohvenus.shop`,
+  MYR currency, Basic plan) before writing it in, not guessed.
+
 ## 2026-08-22 — Oh! Venus mailbox confirmed: ohvenus.shop@gmail.com
 
 - **Status:** Confirmed

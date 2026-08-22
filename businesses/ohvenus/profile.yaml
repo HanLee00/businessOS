@@ -18,7 +18,9 @@ integrations:
     connection_name: composio_default
   commerce:
     provider: shopify
-    store_identifier: null
+    store_identifier: ohvenus.shop
+    myshopify_domain: 9s4j4j-8d.myshopify.com
+    access_via: composio
   email:
     provider: gmail
     mailbox: ohvenus.shop@gmail.com
@@ -39,6 +41,5 @@ defaults:
 
 required_confirmation:
   - legal_entity_name
-  - shopify_store_identifier
   - tax_treatment
   - payment_terms_days

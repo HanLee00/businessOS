@@ -33,7 +33,7 @@ integrations:
     scope_model: one_explicit_store_per_action
     credential_storage: provider_connection_or_secret_store
     businesses:
-      ohvenus: awaiting_store_identifier
+      ohvenus: ohvenus.shop
 
   - integration_id: gmail
     domain: communication
