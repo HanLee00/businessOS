@@ -51,19 +51,20 @@ When the local files are unavailable, use the private Google Sheet mirror:
 - Owner/account: `gaiagiftsco@gmail.com`
 
 Read the Sheet's `guide` tab before using `catalog` or `prices`. The Sheet is a
-read-only mobile mirror, not the master and not a two-way sync. As verified on
-2026-08-11, it contains Oren Sport only. The local database contains Oren Sport,
-Rightway, Esping/Le'fonse, and Megah Textile. Use the Sheet only when the requested
-code is present and its source/effective date is acceptable. If the code is absent,
-the supplier is not yet mirrored, or the Sheet conflicts with the local master or
-supplier confirmation, stop and surface the limitation rather than guessing.
+read-only mobile mirror, not the master and not a two-way sync. It covers all
+four suppliers at parity with the local master — Oren Sport, Rightway,
+Esping/Le'fonse, and Megah Textile, 531 products / 914 price points, extracted
+2026-08-11 — verified directly against the live Sheet via the Composio
+`googlesheets` connection on 2026-08-22 (spot-checked rows from each of the
+four suppliers in both `catalog` and `prices`). Use the Sheet only when the
+requested code is present and its source/effective date is acceptable. If the
+code is absent or the Sheet conflicts with the local master or supplier
+confirmation, stop and surface the limitation rather than guessing.
 
-**Planned:** extend the mirror to cover Rightway, Esping/Le'fonse, and Megah
-Textile at parity with Oren Sport, so a phone-only session isn't blocked on
-those suppliers. Owner decision 2026-08-22, not yet done — needs a session with
-Google Sheets range-write access plus the local `prices.csv`/`products.csv` rows
-for those three suppliers. Until this is done, the coverage gap above is real,
-not just a caution; see `memory/known-issues.md`.
+Note: this file previously stated the Sheet contained Oren Sport only, dated
+the same 2026-08-11. That was wrong at the time of the 2026-08-22 check — the
+mirror already had full coverage and the file was never corrected after the
+sync happened. See `memory/lessons.md`, 2026-08-22.
 
 ## Selling price, supplier cost, and size uplift
 

@@ -126,17 +126,20 @@
   local devices are offline; unpushed instructions or an unverified connector
   make "correct every time" impossible to guarantee.
 
-## 2026-08-22 — Extend the GWW mobile Sheet mirror to all four suppliers
+## 2026-08-22 — Superseded same-day: the GWW Sheet mirror was never Oren-only
 
-- **Status:** Confirmed target; not yet done
-- **Decision:** Extend the private Sheet mirror in `businesses/gaia/product-data.md`
-  to cover Rightway, Esping/Le'fonse, and Megah Textile at the same coverage as
-  Oren Sport, so phone-only sessions aren't blocked on those suppliers.
-- **Reason:** Phone-only reliability for Gaia apparel invoicing/quoting
-  currently has a real gap for 3 of 4 suppliers — the workflow correctly stops
-  and asks rather than guessing, but that means it isn't yet "runs correctly
-  every time" from a phone for those suppliers. Recorded in
-  `memory/known-issues.md` until the mirror is populated.
+- **Status:** Superseded within the same day — see correction below
+- **Original decision (wrong premise):** Extend the private Sheet mirror in
+  `businesses/gaia/product-data.md` to cover Rightway, Esping/Le'fonse, and
+  Megah Textile, believing it covered Oren Sport only.
+- **Correction:** Checked the live Sheet directly via the Composio
+  `googlesheets` connection the same day and found it already had full
+  four-supplier coverage (531 products / 914 price points, matching the
+  `guide` tab, extracted 2026-08-11) — spot-verified rows from all four
+  suppliers in both `catalog` and `prices`. `product-data.md` had simply never
+  been corrected after that 2026-08-11 sync landed; the "Oren only" claim was
+  stale documentation, not a real gap. No extension work is needed. Recorded
+  as a lesson, not repeated here — see `memory/lessons.md`, 2026-08-22.
 
 ## 2026-08-13 — GWW product data remains external to Business OS
 

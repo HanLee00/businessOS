@@ -39,10 +39,11 @@ instructions or running a workflow from such a session:
    simply absent from the current session means stop and say so, not fall back
    to a different, unverified execution path.
 3. For Gaia apparel product/cost lookups specifically: the mobile-reachable
-   source (`businesses/gaia/product-data.md`'s Sheet mirror) currently covers a
-   subset of suppliers only. See that file for current coverage before quoting
-   or invoicing a supplier not yet mirrored — stop and ask rather than
-   estimating a supplier cost.
+   source (`businesses/gaia/product-data.md`'s Sheet mirror) currently covers
+   all four GWW suppliers at parity with the local master (verified
+   2026-08-22). Still confirm the requested code is actually present and its
+   source/effective date is current before quoting — a code genuinely absent
+   from the mirror, or a mirror/local conflict, is stop-and-ask, not guess.
 
 ## Close-out — capture before reporting done
 

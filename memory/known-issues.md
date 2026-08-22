@@ -30,15 +30,6 @@ end to end against live systems. Expect undiscovered API behaviour comparable to
 the invoice auto-number and line-item issues. Run each once under supervision
 before relying on it from a device without local file access.
 
-## GWW mobile Sheet mirror covers one of four suppliers
-
-`businesses/gaia/product-data.md`'s Sheet mirror (the only remote-reachable Gaia
-product/cost source) covers Oren Sport only; the local master also has Rightway,
-Esping/Le'fonse, and Megah Textile. A phone-only session cannot correctly quote or
-invoice those three suppliers today — it must stop and ask rather than estimate.
-Extension is planned (see that file) but not done; requires Sheets range-write
-access and the local CSV rows for those suppliers.
-
 ## Gaia account mapping is not reviewed
 
 `reporting/account-mapping.yaml` is `draft_requires_account_review` with
