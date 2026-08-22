@@ -20,24 +20,26 @@ financial event beyond the approved draft.
 3. Currency and tax treatment match the organization.
 4. Contact and item references resolve to existing records, or a creation plan is
    separately approved.
-5. Resolve delivery region and total product-piece quantity, then apply the
+5. For Gaia/GWW product codes, supplier costs, size bands, or large-size uplifts,
+   follow `businesses/gaia/product-data.md` before calculating customer line rates.
+6. Resolve delivery region and total product-piece quantity, then apply the
    business shipping policy.
-6. Gaia shipping: West Malaysia at 100 pieces or fewer gets MYR 15 automatically in
+7. Gaia shipping: West Malaysia at 100 pieces or fewer gets MYR 15 automatically in
    Zoho's invoice-level `shipping_charge` field. Above 100 pieces, ask the owner.
    East Malaysia requires an owner-supplied fee. Ambiguous destination stops for
    clarification. Shipping is **never** a line item.
-7. Read the next invoice number live from Zoho (see below). Never use a cached number.
-8. Duplicate reference/customer lookup returns no conflict.
-9. Show the owner dates, quantities, rates, shipping, discounts, tax, and total.
-10. `create_draft` proceeds only after explicit approval naming the business.
-11. Every line item description follows `line_item_description_format` in
+8. Read the next invoice number live from Zoho (see below). Never use a cached number.
+9. Duplicate reference/customer lookup returns no conflict.
+10. Show the owner dates, quantities, rates, shipping, discounts, tax, and total.
+11. `create_draft` proceeds only after explicit approval naming the business.
+12. Every line item description follows `line_item_description_format` in
     `document-defaults.yaml`: no comma-separated specs. Item/variant name (plus
     any variant detail such as colour or material) on its own line, then a
     labelled section per detail group (e.g. "HEATPRESS PRINT:" for apparel, or
     numbered components for a gift set) with one line per position/component,
     then a labelled breakdown (size, quantity, etc.) with one line per entry.
     This applies to every order type, not apparel only.
-12. `reference_number` is set — format `<CUSTOMERCODE>-<YYYYMMDD>-<ITEMCODE>` —
+13. `reference_number` is set — format `<CUSTOMERCODE>-<YYYYMMDD>-<ITEMCODE>` —
     via the raw PUT proxy. Confirm it saved by reading the invoice back, but see
     failure mode 4 below: a negative immediate read is unconfirmed, not failed.
 
