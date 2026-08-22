@@ -107,6 +107,24 @@
 - **Decision:** Enter every Gaia shipping fee in Zoho's invoice-level Shipping Charges field so it appears below product subtotal. Never create shipping as a product/service item row. Treat the previously created shipping item as legacy and do not use it.
 - **Reason:** Keeps product lines clean and ensures every Gaia invoice follows the owner's fixed financial-summary format.
 
+## 2026-08-22 — Oh! Venus mailbox confirmed: ohvenus.shop@gmail.com
+
+- **Status:** Confirmed
+- **Decision:** Register `ohvenus.shop@gmail.com` as the Oh! Venus business
+  mailbox in `integrations/map.yaml` and `businesses/ohvenus/profile.yaml`
+  (`access_via: composio`, connection alias `ohvenus`). Removed
+  `authorized_sender_identity` from that profile's `required_confirmation`
+  list, now resolved.
+- **Reason:** `workflows/customer-support.md` step 1 ("resolve the business
+  mailbox") had nothing to resolve *to* for Oh! Venus — the map said
+  `awaiting_mailbox` and the profile had `mailbox: null`, despite a real
+  customer email already having been sent for Oh! Venus on 2026-08-22 (see
+  `memory/lessons.md`, order #1163). The workflow was working in practice on
+  tribal knowledge, not on what businessOS actually specified. Verified the
+  address against a live, active Composio Gmail connection
+  (`gmail_myxa-ungues`, 423 messages) before writing it in, per owner
+  confirmation, rather than taking the address on faith.
+
 ## 2026-08-22 — Remote/phone-only sessions get an explicit preflight, and push is a hard close-out gate
 
 - **Status:** Confirmed

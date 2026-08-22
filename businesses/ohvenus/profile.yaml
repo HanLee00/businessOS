@@ -21,7 +21,9 @@ integrations:
     store_identifier: null
   email:
     provider: gmail
-    mailbox: null
+    mailbox: ohvenus.shop@gmail.com
+    access_via: composio
+    connection_alias: ohvenus
   files:
     provider: google_drive
     root_folder_id: null
@@ -40,4 +42,3 @@ required_confirmation:
   - shopify_store_identifier
   - tax_treatment
   - payment_terms_days
-  - authorized_sender_identity

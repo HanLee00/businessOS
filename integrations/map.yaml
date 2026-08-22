@@ -43,7 +43,7 @@ integrations:
     credential_storage: provider_connection
     businesses:
       gaia: gaiagiftsco@gmail.com
-      ohvenus: awaiting_mailbox
+      ohvenus: ohvenus.shop@gmail.com
 
   - integration_id: google_drive
     domain: files
