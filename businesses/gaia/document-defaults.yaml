@@ -39,6 +39,31 @@ templates:
     Pick by order content, not by customer. A customer that orders both uniforms
     and gift sets gets one invoice per template as needed.
 
+quotation_templates:
+  rule: >-
+    Zoho's estimate templates are a SEPARATE set from invoice templates above -
+    different template_ids, looked up via GET /settings/templates filtering
+    template_group == "estimate". Never reuse an invoice template_id on a
+    quotation, and never assume the org's is_default estimate template is the
+    right pick for a normal priced quote.
+  standard:
+    zoho_template_id: "726115000000017003"
+    zoho_template_name: Standard Template
+    use_for: normal_priced_quotation_with_visible_totals
+  known_bad:
+    zoho_template_id: "726115000000233013"
+    zoho_template_name: Standard - NEW (NO TOTAL)
+    note: >-
+      This is the org's is_default estimate template, but it suppresses the
+      totals/shipping section on the PDF - built for a specific quote where
+      pricing wasn't finalized (Golden Agri, 2026-08-19), not a general-purpose
+      template. Mistake made 2026-08-28: copied this template_id from the most
+      recently created quote without checking what it actually renders, so
+      IV/QT2870 (Kerry GBS) went out with no visible shipping charge. Fixed by
+      switching to the real Standard Template above. Always verify an estimate
+      template's actual name/behavior before reusing it - do not infer "most
+      recent" or "is_default" means "right for this quote."
+
 item_master_naming:
   rule: >-
     When a product has a known product code (for example L01, QD04, CRP7200),
@@ -46,6 +71,13 @@ item_master_naming:
     GSM if one was given - never bury the code mid-name or drop it. If no code
     applies to the product line (for example the Sublimation Polo/Round Neck
     items), name it plainly with no invented code.
+  never_include_colour: >-
+    The item master name and description are colour-agnostic - never include a
+    colour or fabric colourway (e.g. Dark Melange, Navy) in the item master name.
+    Colour varies per order and belongs only in the invoice/quotation line item
+    description, never in the item master record. This mirrors the rule in
+    workflows.md under "Document detail placement" - stated here too since this
+    is where item master naming is looked up during invoice creation.
   examples:
     - "QD04 Microfibre Round Neck Tshirt - 160gsm"
     - "CRP7200 Microfibre Polo Tshirt 160gsm"
@@ -182,6 +214,19 @@ shipping_policy:
     action: ask_owner_before_invoice_creation
     default_fee_myr: null
     prompt: Confirm the shipping fee before creating the invoice.
+  customer_exceptions:
+    rule: >-
+      Some customers have an owner-stated standing exception to the default
+      shipping policy (e.g. shipping always waived). Check this list before
+      auto-applying west_malaysia/east_malaysia fee logic. Add a new entry
+      the same turn the owner states an exception - do not wait to be asked
+      twice.
+    entries:
+      - customer: Intergraph Process Power & Offshore (M) Sdn Bhd
+        fee_myr: 0
+        note: >-
+          Owner instruction, 2026-08-26: "I usually dont charge shipping for
+          her." Applies to all her invoices going forward, not just IV3036.
   missing_or_ambiguous_region:
     action: ask_owner_before_invoice_creation
     prompt: Confirm the delivery region and shipping fee before creating the invoice.
