@@ -186,6 +186,20 @@ Use the full documented endpoint. A shortened proxy path is rejected and creates
     customer's invoice history. Likely affects any other wrapper tool with a
     large Zoho ID typed as `integer`, not just this one - not yet surveyed.
 
+15. **A plain `create_draft` POST with no `invoice_number` field can still land on
+    the wrong numbering series.** On 2026-08-28, creating a Gaia invoice via the
+    raw proxy with `invoice_number` omitted (per failure mode 1) auto-assigned
+    `INV-000024` instead of continuing the visible `30xx` sequence - this org
+    appears to carry more than one Zoho numbering series, and plain
+    auto-generation does not reliably pick the one already in customer-facing
+    use. Always follow up with `ZOHO_BOOKS_UPDATE_INVOICE` (`invoice_number` +
+    `ignore_auto_number_generation: true`, full `line_items` resend) to force
+    the confirmed next number, and re-read the invoice afterward to confirm it
+    actually changed - do not assume a plain create landed on the right series
+    just because no error was returned. Re-verify the live max immediately
+    before forcing the number, not from an earlier read in the same session -
+    another invoice can land in between.
+
 ### Required fields on every Gaia invoice
 
 - `notes` - payment terms and lead time (see `businesses/gaia/document-defaults.yaml`)
