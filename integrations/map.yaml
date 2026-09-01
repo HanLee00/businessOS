@@ -35,6 +35,16 @@ integrations:
     businesses:
       ohvenus: ohvenus.shop
 
+  - integration_id: easyparcel
+    domain: shipping
+    system_of_record_for:
+      - courier_shipments
+      - actual_shipment_charges
+    scope_model: one_explicit_business_account_per_action
+    credential_storage: provider_connection_or_secret_store
+    businesses:
+      ohvenus: easyparcel_my
+
   - integration_id: gmail
     domain: communication
     system_of_record_for:

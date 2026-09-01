@@ -21,6 +21,11 @@ integrations:
     store_identifier: ohvenus.shop
     myshopify_domain: 9s4j4j-8d.myshopify.com
     access_via: composio
+  shipping:
+    provider: easyparcel
+    account_region: Malaysia
+    access_via: direct_api
+    legacy_credential_name: EASYPARCEL_API_KEY
   email:
     provider: gmail
     mailbox: ohvenus.shop@gmail.com

@@ -4,6 +4,7 @@
 |---|---|---|
 | Quotations, invoices, payments, expenses, tax records, P&L | Zoho Books organization for the selected business | Route, prepare, validate, and reference external IDs |
 | Oh! Venus orders, products, inventory status | Oh! Venus Shopify store | Route and summarize; never shadow the catalogue or order database |
+| Oh! Venus courier shipments and actual shipment charges | Oh! Venus EasyParcel account | Match the EasyParcel shipment/AWB to the Shopify fulfillment; Shopify's customer shipping line is revenue and is not evidence of the merchant's courier cost |
 | Gaia/GWW product specifications, supplier catalogue costs, and size bands | GWW product database, with current supplier confirmation for time-sensitive facts | Route through `businesses/gaia/product-data.md`; never copy the catalogue into Business OS or expose confidential cost data to customers |
 | Customer/vendor master data | Approved CRM/accounting/commerce system for that business | Reference the external ID; avoid local copies |
 | Sent/received business email | Authorized mailbox | Draft, search, and summarize under approval rules |

@@ -32,3 +32,13 @@ Every summary includes a period, source report/export reference, currency, recon
   can return an empty `fees` array. Empty means the fee is unavailable from that
   Shopify record, not that the fee was zero. Read the gateway settlement source
   or an approved fee rule before posting payment-processing expense.
+- Shopify fulfillments created by the EasyParcel app expose the courier and an
+  EasyParcel tracking URL/AWB, but the inspected orders had no EasyParcel cost
+  metafield. Shopify's shipping line is the amount charged to the customer, not
+  the merchant's actual courier expense. Match the AWB to EasyParcel and read the
+  shipment price there.
+- The existing `EASYPARCEL_API_KEY` authenticates successfully against the legacy
+  Individual API, but it receives HTTP 401 from the OAuth-based shipment-list
+  endpoint. It cannot be treated as shipment-price access. Connect the Oh! Venus
+  EasyParcel account through the current OAuth Developer Hub before automating
+  shipment-list/detail reads; keep all credentials in the approved secret store.
