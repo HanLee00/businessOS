@@ -42,3 +42,16 @@ Every summary includes a period, source report/export reference, currency, recon
   endpoint. It cannot be treated as shipment-price access. Connect the Oh! Venus
   EasyParcel account through the current OAuth Developer Hub before automating
   shipment-list/detail reads; keep all credentials in the approved secret store.
+- The legacy EasyParcel gateway can return HTTP 403 to clients that use a generic
+  runtime HTTP signature. The Oh! Venus CLI sends an explicit application user
+  agent and JSON accept header. A 403 from a newly implemented client must be
+  checked as a gateway/request-signature issue before rotating a credential that
+  still works through another verified client.
+
+## Read-only courier-cost CLI
+
+The supported EasyParcel command-line client lives in `easyparcel-sync/`. It can
+verify the legacy account connection and, once OAuth is authorized, list shipment
+prices, retrieve one shipment, and produce a date-bounded JSON courier-cost total.
+Its default output deliberately excludes sender and receiver personal data. The
+CLI contains no shipment submission, cancellation, payment, or other write action.

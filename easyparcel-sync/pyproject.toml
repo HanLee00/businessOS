@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ohvenus-easyparcel"
+version = "0.1.0"
+description = "Read-only EasyParcel CLI for Oh! Venus courier-cost reconciliation"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Proprietary"}
+dependencies = []
+
+[project.scripts]
+easyparcel = "easyparcel_cli.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
