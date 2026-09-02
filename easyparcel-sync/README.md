@@ -9,6 +9,7 @@ create, submit, cancel, or pay for shipments.
 - Verify the existing legacy Individual API key without displaying the wallet balance.
 - Generate the URL used to authorize the current EasyParcel OAuth API.
 - Complete OAuth interactively without displaying the Client Secret or tokens.
+- Refresh short-lived OAuth access tokens automatically before shipment reads.
 - List shipment reconciliation fields by date.
 - Retrieve one shipment by its EasyParcel shipment number.
 - Export a period's actual shipping-cost total and individual AWB-level costs as JSON.
@@ -60,6 +61,9 @@ easyparcel oauth-connect
 
 Choose the live Oh! Venus EasyParcel account during authorization, not Sandbox.
 The lower-level `easyparcel oauth-url` command remains available for manual flows.
+The shipment commands automatically use the saved refresh token when the access
+token is within five minutes of expiry. `easyparcel oauth-refresh` is available
+for a supervised immediate refresh check.
 
 List shipment costs:
 
@@ -78,6 +82,11 @@ Produce the daily P&L courier-cost input:
 ```bash
 easyparcel costs --from 2026-09-01 --to 2026-09-01
 ```
+
+`costs` first lists the period and then retrieves every shipment's detail record.
+This is intentional: EasyParcel's list price can exclude tax or other components,
+while the detail `total_price` is the amount paid to EasyParcel. The command verifies
+the shipment number and AWB before including each detailed price in the total.
 
 Every command emits JSON. Failures go to standard error and return a non-zero
 exit code, which makes the CLI suitable for a hosted daily job.

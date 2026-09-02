@@ -47,6 +47,12 @@ Every summary includes a period, source report/export reference, currency, recon
   agent and JSON accept header. A 403 from a newly implemented client must be
   checked as a gateway/request-signature issue before rotating a credential that
   still works through another verified client.
+- EasyParcel's shipment-list `pricing.price` can be lower than the detail record's
+  `pricing.total_price`; one live shipment returned MYR 6.12 in the list and MYR
+  6.49 in details. The list value is not the final P&L courier cost. For every
+  listed shipment, retrieve details, verify the shipment number and AWB match, and
+  use the full detail amount (including the documented BYOC composition where
+  applicable). Fail the reconciliation if a detail price or identity check fails.
 
 ## Read-only courier-cost CLI
 
@@ -58,3 +64,7 @@ secret through a hidden terminal prompt and saves returned credentials only to t
 Git-ignored, owner-only `.env` file. Its default output deliberately excludes sender
 and receiver personal data. The CLI contains no shipment submission, cancellation,
 payment, or other operational write action.
+OAuth access tokens are short-lived. Before a shipment read, the CLI checks the
+recorded expiry and refreshes tokens within five minutes of expiry using the stored
+refresh token and Developer Hub client credentials. A hosted job must preserve the
+rotated refresh token in its secret store; it must not rely on a copied access token.

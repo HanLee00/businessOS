@@ -208,6 +208,31 @@ class OpenApiClient:
             return data
         raise EasyParcelError("Shipment details returned an unexpected data shape")
 
+    def hydrate_shipment_details(
+        self, shipments: Iterable[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """Fetch complete pricing for list records and verify shipment identity."""
+        details: list[dict[str, Any]] = []
+        for listed in shipments:
+            shipment_number = str(listed.get("shipment_number") or "").strip()
+            if not shipment_number:
+                raise EasyParcelError("Shipment list record had no shipment number")
+            detail = self.shipment_details(shipment_number)
+            returned_number = str(detail.get("shipment_number") or "").strip()
+            if returned_number != shipment_number:
+                raise EasyParcelError(
+                    f"Shipment detail identity mismatch for {shipment_number}"
+                )
+            listed_awb = str(listed.get("awb") or listed.get("awb_number") or "").strip()
+            detail_fields = detail.get("shipment_details")
+            detail_awb = ""
+            if isinstance(detail_fields, dict):
+                detail_awb = str(detail_fields.get("awb_number") or "").strip()
+            if listed_awb and detail_awb and listed_awb != detail_awb:
+                raise EasyParcelError(f"Shipment AWB mismatch for {shipment_number}")
+            details.append(detail)
+        return details
+
 
 @dataclass
 class LegacyClient:
@@ -337,6 +362,39 @@ def exchange_authorization_code(
     if not isinstance(access_token, str) or not access_token.strip():
         raise EasyParcelError(
             str(response.get("message") or response.get("error_description") or "EasyParcel did not return an access token")
+        )
+    return response
+
+
+def refresh_access_token(
+    *,
+    client_id: str,
+    client_secret: str,
+    redirect_uri: str,
+    refresh_token: str,
+    transport: HttpTransport,
+) -> dict[str, Any]:
+    if not all(
+        value.strip()
+        for value in (client_id, client_secret, redirect_uri, refresh_token)
+    ):
+        raise EasyParcelError(
+            "OAuth client ID, secret, redirect URI, and refresh token are required"
+        )
+    basic = base64.b64encode(f"{client_id}:{client_secret}".encode("utf-8")).decode("ascii")
+    response = transport.post_form(
+        "https://api.easyparcel.com/oauth/token",
+        {
+            "grant_type": "refresh_token",
+            "redirect_uri": redirect_uri,
+            "refresh_token": refresh_token,
+        },
+        {"Authorization": f"Basic {basic}"},
+    )
+    access_token = response.get("access_token")
+    if not isinstance(access_token, str) or not access_token.strip():
+        raise EasyParcelError(
+            str(response.get("message") or response.get("error_description") or "EasyParcel did not refresh the access token")
         )
     return response
 

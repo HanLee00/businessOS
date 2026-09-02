@@ -10,7 +10,7 @@ import secrets
 import sys
 import time
 import webbrowser
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any, Sequence
@@ -24,6 +24,7 @@ from .client import (
     build_authorize_url,
     exchange_authorization_code,
     normalize_shipment,
+    refresh_access_token,
     summarize_costs,
 )
 
@@ -78,6 +79,11 @@ def parser() -> argparse.ArgumentParser:
     oauth_connect.add_argument("--wait-seconds", type=int, default=300)
     oauth_connect.set_defaults(handler=_oauth_connect)
 
+    oauth_refresh = commands.add_parser(
+        "oauth-refresh", help="refresh the OAuth access token immediately"
+    )
+    oauth_refresh.set_defaults(handler=_oauth_refresh)
+
     list_parser = commands.add_parser("shipments", help="list shipment cost records")
     _date_filters(list_parser)
     list_parser.add_argument("--status-code")
@@ -122,9 +128,7 @@ def _transport(args: argparse.Namespace) -> HttpTransport:
 
 
 def _open_client(args: argparse.Namespace) -> OpenApiClient:
-    return OpenApiClient(
-        os.environ.get("EASYPARCEL_ACCESS_TOKEN", ""), _transport(args)
-    )
+    return OpenApiClient(_oauth_access_token(args), _transport(args))
 
 
 def _legacy_check(args: argparse.Namespace) -> dict[str, Any]:
@@ -250,6 +254,56 @@ def _oauth_connect(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def _oauth_access_token(args: argparse.Namespace) -> str:
+    access_token = os.environ.get("EASYPARCEL_ACCESS_TOKEN", "")
+    expires_at = os.environ.get("EASYPARCEL_TOKEN_EXPIRES_AT", "")
+    if access_token and (not expires_at or not _token_expires_soon(expires_at)):
+        return access_token
+    if not os.environ.get("EASYPARCEL_REFRESH_TOKEN"):
+        raise EasyParcelError(
+            "EASYPARCEL_ACCESS_TOKEN is required; run easyparcel oauth-connect"
+        )
+    return _refresh_oauth(args)["access_token"]
+
+
+def _oauth_refresh(args: argparse.Namespace) -> dict[str, Any]:
+    token = _refresh_oauth(args)
+    return {
+        "ok": True,
+        "oauth_refreshed": True,
+        "credentials_saved_to": str(args.env_file.resolve()),
+        "token_expires_at": token.get("expires_at"),
+    }
+
+
+def _refresh_oauth(args: argparse.Namespace) -> dict[str, Any]:
+    token = refresh_access_token(
+        client_id=os.environ.get("EASYPARCEL_CLIENT_ID", ""),
+        client_secret=os.environ.get("EASYPARCEL_CLIENT_SECRET", ""),
+        redirect_uri=os.environ.get("EASYPARCEL_REDIRECT_URI", ""),
+        refresh_token=os.environ.get("EASYPARCEL_REFRESH_TOKEN", ""),
+        transport=_transport(args),
+    )
+    updates = {"EASYPARCEL_ACCESS_TOKEN": str(token["access_token"])}
+    if token.get("refresh_token"):
+        updates["EASYPARCEL_REFRESH_TOKEN"] = str(token["refresh_token"])
+    if token.get("expires_at"):
+        updates["EASYPARCEL_TOKEN_EXPIRES_AT"] = str(token["expires_at"])
+    update_env(args.env_file, updates)
+    os.environ.update(updates)
+    return token
+
+
+def _token_expires_soon(value: str) -> bool:
+    try:
+        expires_at = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+    except ValueError:
+        raise EasyParcelError("EASYPARCEL_TOKEN_EXPIRES_AT is not a valid timestamp") from None
+    return expires_at <= datetime.now(timezone.utc) + timedelta(minutes=5)
+
+
 def update_env(path: Path, updates: dict[str, str]) -> None:
     """Atomically update selected .env keys without printing secret values."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -309,14 +363,21 @@ def _shipment(args: argparse.Namespace) -> dict[str, Any]:
 
 def _costs(args: argparse.Namespace) -> dict[str, Any]:
     start, end = _validated_dates(args)
-    records = _open_client(args).list_shipments(
+    client = _open_client(args)
+    records = client.list_shipments(
         date_from=start,
         date_to=end,
         status_code=args.status_code,
         limit=args.limit,
         fetch_all=True,
     )
-    return {"ok": True, "period": {"from": start, "to": end}, **summarize_costs(records)}
+    details = client.hydrate_shipment_details(records)
+    return {
+        "ok": True,
+        "period": {"from": start, "to": end},
+        "pricing_basis": "shipment_details",
+        **summarize_costs(details),
+    }
 
 
 def _iso_date(value: str, label: str) -> str:

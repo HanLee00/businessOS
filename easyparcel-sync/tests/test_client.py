@@ -9,6 +9,7 @@ from easyparcel_cli.client import (
     build_authorize_url,
     exchange_authorization_code,
     normalize_shipment,
+    refresh_access_token,
     summarize_costs,
 )
 
@@ -70,6 +71,47 @@ class OpenApiClientTests(unittest.TestCase):
 
         client = OpenApiClient("token", NotFoundTransport())
         self.assertEqual(client.list_shipments(fetch_all=True), [])
+
+    def test_hydrate_details_verifies_identity_and_awb(self):
+        transport = FakeTransport(
+            json_responses=[
+                {
+                    "status_code": 200,
+                    "data": [
+                        {
+                            "shipment_number": "ES-1",
+                            "shipment_details": {"awb_number": "AWB-1"},
+                            "pricing": {"total_price": "6.49"},
+                        }
+                    ],
+                }
+            ]
+        )
+        client = OpenApiClient("token", transport)
+        result = client.hydrate_shipment_details(
+            [{"shipment_number": "ES-1", "awb": "AWB-1"}]
+        )
+        self.assertEqual(result[0]["pricing"]["total_price"], "6.49")
+
+    def test_hydrate_details_rejects_awb_mismatch(self):
+        transport = FakeTransport(
+            json_responses=[
+                {
+                    "status_code": 200,
+                    "data": [
+                        {
+                            "shipment_number": "ES-1",
+                            "shipment_details": {"awb_number": "OTHER"},
+                        }
+                    ],
+                }
+            ]
+        )
+        client = OpenApiClient("token", transport)
+        with self.assertRaisesRegex(EasyParcelError, "AWB mismatch"):
+            client.hydrate_shipment_details(
+                [{"shipment_number": "ES-1", "awb": "AWB-1"}]
+            )
 
 
 class NormalizationTests(unittest.TestCase):
@@ -174,6 +216,21 @@ class LegacyAndOauthTests(unittest.TestCase):
         )
         self.assertEqual(result["access_token"], "access")
         self.assertTrue(transport.calls[0][2]["Authorization"].startswith("Basic "))
+
+    def test_refresh_token_uses_refresh_grant(self):
+        transport = FakeTransport(
+            form_response={"access_token": "new-access", "refresh_token": "new-refresh"}
+        )
+        result = refresh_access_token(
+            client_id="client",
+            client_secret="secret",
+            redirect_uri="http://127.0.0.1:8080/callback",
+            refresh_token="old-refresh",
+            transport=transport,
+        )
+        self.assertEqual(result["access_token"], "new-access")
+        self.assertEqual(transport.calls[0][1]["grant_type"], "refresh_token")
+        self.assertEqual(transport.calls[0][1]["refresh_token"], "old-refresh")
 
 
 if __name__ == "__main__":

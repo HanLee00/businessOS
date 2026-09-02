@@ -9,7 +9,7 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
-from easyparcel_cli.cli import load_env, main, update_env
+from easyparcel_cli.cli import _token_expires_soon, load_env, main, update_env
 
 
 class CliTests(unittest.TestCase):
@@ -20,7 +20,10 @@ class CliTests(unittest.TestCase):
             code = main(["--env-file", "/does/not/exist", "shipments"])
         self.assertEqual(code, 1)
         self.assertEqual(stdout.getvalue(), "")
-        self.assertEqual(json.loads(stderr.getvalue())["error"], "EASYPARCEL_ACCESS_TOKEN is required")
+        self.assertEqual(
+            json.loads(stderr.getvalue())["error"],
+            "EASYPARCEL_ACCESS_TOKEN is required; run easyparcel oauth-connect",
+        )
 
     def test_load_env_does_not_override_existing_values(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -62,6 +65,10 @@ class CliTests(unittest.TestCase):
                 "KEEP=value\nTOKEN=new\n\nREFRESH=secret\n",
             )
             self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+
+    def test_token_expiry_detection(self):
+        self.assertTrue(_token_expires_soon("2000-01-01T00:00:00Z"))
+        self.assertFalse(_token_expires_soon("2999-01-01T00:00:00Z"))
 
 
 if __name__ == "__main__":
