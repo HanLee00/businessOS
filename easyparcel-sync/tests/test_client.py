@@ -7,6 +7,7 @@ from easyparcel_cli.client import (
     LegacyClient,
     OpenApiClient,
     build_authorize_url,
+    exchange_authorization_code,
     normalize_shipment,
     summarize_costs,
 )
@@ -22,8 +23,8 @@ class FakeTransport:
         self.calls.append((url, payload, headers))
         return self.json_responses.pop(0)
 
-    def post_form(self, url, payload):
-        self.calls.append((url, payload))
+    def post_form(self, url, payload, headers=None):
+        self.calls.append((url, payload, headers or {}))
         return self.form_response
 
 
@@ -158,6 +159,21 @@ class LegacyAndOauthTests(unittest.TestCase):
         url = build_authorize_url("client id", "http://127.0.0.1/callback", "state")
         self.assertIn("client_id=client+id", url)
         self.assertIn("redirect_uri=http%3A%2F%2F127.0.0.1%2Fcallback", url)
+
+    def test_exchange_code_uses_basic_auth_without_returning_it(self):
+        transport = FakeTransport(
+            form_response={"access_token": "access", "refresh_token": "refresh"}
+        )
+        result = exchange_authorization_code(
+            client_id="client",
+            client_secret="secret",
+            redirect_uri="http://127.0.0.1:8080/callback",
+            code="code",
+            state="state",
+            transport=transport,
+        )
+        self.assertEqual(result["access_token"], "access")
+        self.assertTrue(transport.calls[0][2]["Authorization"].startswith("Basic "))
 
 
 if __name__ == "__main__":

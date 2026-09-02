@@ -9,7 +9,7 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
-from easyparcel_cli.cli import load_env, main
+from easyparcel_cli.cli import load_env, main, update_env
 
 
 class CliTests(unittest.TestCase):
@@ -51,6 +51,17 @@ class CliTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertNotIn("not-printed", stderr.getvalue())
         self.assertIn("YYYY-MM-DD", json.loads(stderr.getvalue())["error"])
+
+    def test_update_env_replaces_and_appends_without_leaking_permissions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / ".env"
+            path.write_text("KEEP=value\nTOKEN=old\n", encoding="utf-8")
+            update_env(path, {"TOKEN": "new", "REFRESH": "secret"})
+            self.assertEqual(
+                path.read_text(encoding="utf-8"),
+                "KEEP=value\nTOKEN=new\n\nREFRESH=secret\n",
+            )
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import base64
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -45,13 +46,19 @@ class HttpTransport:
         )
         return self._open_json(request)
 
-    def post_form(self, url: str, payload: dict[str, str]) -> dict[str, Any]:
+    def post_form(
+        self,
+        url: str,
+        payload: dict[str, str],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
         request = urllib.request.Request(
             url,
             data=urllib.parse.urlencode(payload).encode("utf-8"),
             headers={
                 **DEFAULT_HEADERS,
                 "Content-Type": "application/x-www-form-urlencoded",
+                **(headers or {}),
             },
             method="POST",
         )
@@ -302,6 +309,36 @@ def build_authorize_url(client_id: str, redirect_uri: str, state: str) -> str:
         {"client_id": client_id, "redirect_uri": redirect_uri, "state": state}
     )
     return f"https://api.easyparcel.com/oauth/login?{params}"
+
+
+def exchange_authorization_code(
+    *,
+    client_id: str,
+    client_secret: str,
+    redirect_uri: str,
+    code: str,
+    state: str,
+    transport: HttpTransport,
+) -> dict[str, Any]:
+    if not all(value.strip() for value in (client_id, client_secret, redirect_uri, code)):
+        raise EasyParcelError("OAuth client ID, secret, redirect URI, and code are required")
+    basic = base64.b64encode(f"{client_id}:{client_secret}".encode("utf-8")).decode("ascii")
+    response = transport.post_form(
+        "https://api.easyparcel.com/oauth/token",
+        {
+            "grant_type": "authorization_code",
+            "redirect_uri": redirect_uri,
+            "code": code,
+            "state": state,
+        },
+        {"Authorization": f"Basic {basic}"},
+    )
+    access_token = response.get("access_token")
+    if not isinstance(access_token, str) or not access_token.strip():
+        raise EasyParcelError(
+            str(response.get("message") or response.get("error_description") or "EasyParcel did not return an access token")
+        )
+    return response
 
 
 def _first(mapping: dict[str, Any], *keys: str) -> Any:

@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 import argparse
+import getpass
 import json
 import os
 import secrets
 import sys
+import time
+import webbrowser
 from datetime import date
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any, Sequence
+from urllib.parse import parse_qs, urlparse
 
 from .client import (
     EasyParcelError,
@@ -17,6 +22,7 @@ from .client import (
     LegacyClient,
     OpenApiClient,
     build_authorize_url,
+    exchange_authorization_code,
     normalize_shipment,
     summarize_costs,
 )
@@ -61,6 +67,16 @@ def parser() -> argparse.ArgumentParser:
     oauth_url.add_argument("--redirect-uri")
     oauth_url.add_argument("--state")
     oauth_url.set_defaults(handler=_oauth_url)
+
+    oauth_connect = commands.add_parser(
+        "oauth-connect",
+        help="interactively authorize EasyParcel and save tokens to the protected env file",
+    )
+    oauth_connect.add_argument("--client-id")
+    oauth_connect.add_argument("--redirect-uri")
+    oauth_connect.add_argument("--no-browser", action="store_true")
+    oauth_connect.add_argument("--wait-seconds", type=int, default=300)
+    oauth_connect.set_defaults(handler=_oauth_connect)
 
     list_parser = commands.add_parser("shipments", help="list shipment cost records")
     _date_filters(list_parser)
@@ -124,6 +140,142 @@ def _oauth_url(args: argparse.Namespace) -> dict[str, Any]:
         state,
     )
     return {"authorization_url": url, "state": state}
+
+
+def _oauth_connect(args: argparse.Namespace) -> dict[str, Any]:
+    client_id = (
+        args.client_id
+        or os.environ.get("EASYPARCEL_CLIENT_ID")
+        or input("EasyParcel Client ID: ").strip()
+    )
+    client_secret = os.environ.get("EASYPARCEL_CLIENT_SECRET") or getpass.getpass(
+        "EasyParcel Client Secret (hidden): "
+    ).strip()
+    redirect_uri = (
+        args.redirect_uri
+        or os.environ.get("EASYPARCEL_REDIRECT_URI")
+        or "http://127.0.0.1:8080/callback"
+    )
+    callback_url = urlparse(redirect_uri)
+    if callback_url.scheme != "http" or callback_url.hostname not in {
+        "127.0.0.1",
+        "localhost",
+    }:
+        raise EasyParcelError(
+            "oauth-connect requires a loopback HTTP redirect such as http://127.0.0.1:8080/callback"
+        )
+    if not callback_url.port:
+        raise EasyParcelError("The OAuth redirect URI must include a local port")
+    if args.wait_seconds < 30 or args.wait_seconds > 900:
+        raise EasyParcelError("--wait-seconds must be between 30 and 900")
+
+    state = secrets.token_urlsafe(24)
+    authorize_url = build_authorize_url(client_id, redirect_uri, state)
+    callback: dict[str, str] = {}
+    expected_path = callback_url.path or "/"
+
+    class CallbackHandler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802 - standard library callback name
+            parsed = urlparse(self.path)
+            if parsed.path != expected_path:
+                self.send_error(404)
+                return
+            values = parse_qs(parsed.query)
+            for key in ("code", "state", "error", "error_description"):
+                if values.get(key):
+                    callback[key] = values[key][0]
+            body = (
+                b"<h1>EasyParcel connected</h1><p>You can close this tab and return to Terminal.</p>"
+                if callback.get("code")
+                else b"<h1>EasyParcel authorization failed</h1><p>Return to Terminal for details.</p>"
+            )
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, format: str, *values: Any) -> None:
+            return
+
+    try:
+        server = HTTPServer((callback_url.hostname, callback_url.port), CallbackHandler)
+    except OSError as exc:
+        raise EasyParcelError(f"Could not start the local OAuth callback: {exc}") from None
+
+    print("Opening EasyParcel authorization in your browser...", file=sys.stderr)
+    print(f"If it does not open, visit:\n{authorize_url}", file=sys.stderr)
+    if not args.no_browser:
+        webbrowser.open(authorize_url)
+    deadline = time.monotonic() + args.wait_seconds
+    try:
+        while not callback and time.monotonic() < deadline:
+            server.timeout = min(1.0, max(0.0, deadline - time.monotonic()))
+            server.handle_request()
+    finally:
+        server.server_close()
+
+    if not callback:
+        raise EasyParcelError("Timed out waiting for EasyParcel authorization")
+    if callback.get("error"):
+        raise EasyParcelError(callback.get("error_description") or callback["error"])
+    returned_state = callback.get("state", "")
+    if not secrets.compare_digest(returned_state, state):
+        raise EasyParcelError("OAuth state mismatch; authorization was not saved")
+    code = callback.get("code", "")
+    token = exchange_authorization_code(
+        client_id=client_id,
+        client_secret=client_secret,
+        redirect_uri=redirect_uri,
+        code=code,
+        state=state,
+        transport=_transport(args),
+    )
+    updates = {
+        "EASYPARCEL_CLIENT_ID": client_id,
+        "EASYPARCEL_CLIENT_SECRET": client_secret,
+        "EASYPARCEL_REDIRECT_URI": redirect_uri,
+        "EASYPARCEL_ACCESS_TOKEN": str(token["access_token"]),
+    }
+    if token.get("refresh_token"):
+        updates["EASYPARCEL_REFRESH_TOKEN"] = str(token["refresh_token"])
+    if token.get("expires_at"):
+        updates["EASYPARCEL_TOKEN_EXPIRES_AT"] = str(token["expires_at"])
+    update_env(args.env_file, updates)
+    return {
+        "ok": True,
+        "oauth_connected": True,
+        "credentials_saved_to": str(args.env_file.resolve()),
+        "token_expires_at": token.get("expires_at"),
+    }
+
+
+def update_env(path: Path, updates: dict[str, str]) -> None:
+    """Atomically update selected .env keys without printing secret values."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    existing = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+    remaining = dict(updates)
+    output: list[str] = []
+    for line in existing:
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#") and "=" in stripped:
+            key = stripped.split("=", 1)[0].strip()
+            if key in remaining:
+                output.append(f"{key}={remaining.pop(key)}")
+                continue
+        output.append(line)
+    if output and output[-1] != "":
+        output.append("")
+    output.extend(f"{key}={value}" for key, value in remaining.items())
+    temporary = path.with_name(f".{path.name}.{secrets.token_hex(8)}.tmp")
+    try:
+        temporary.write_text("\n".join(output) + "\n", encoding="utf-8")
+        temporary.chmod(0o600)
+        temporary.replace(path)
+        path.chmod(0o600)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
 
 
 def _validated_dates(args: argparse.Namespace) -> tuple[str | None, str | None]:

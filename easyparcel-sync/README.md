@@ -8,6 +8,7 @@ create, submit, cancel, or pay for shipments.
 
 - Verify the existing legacy Individual API key without displaying the wallet balance.
 - Generate the URL used to authorize the current EasyParcel OAuth API.
+- Complete OAuth interactively without displaying the Client Secret or tokens.
 - List shipment reconciliation fields by date.
 - Retrieve one shipment by its EasyParcel shipment number.
 - Export a period's actual shipping-cost total and individual AWB-level costs as JSON.
@@ -34,6 +35,7 @@ Keep these values in `.env` (which Git ignores):
 EASYPARCEL_API_KEY=existing-legacy-key
 EASYPARCEL_ACCESS_TOKEN=current-oauth-access-token
 EASYPARCEL_CLIENT_ID=developer-hub-client-id
+EASYPARCEL_CLIENT_SECRET=developer-hub-client-secret
 EASYPARCEL_REDIRECT_URI=http://127.0.0.1:8080/callback
 ```
 
@@ -47,17 +49,17 @@ Verify the existing legacy connection:
 easyparcel legacy-check
 ```
 
-Create the OAuth login URL after adding the client ID and redirect URI:
+Connect OAuth securely. The command asks for the Client ID and then accepts the
+Client Secret through a hidden prompt. It opens the browser, captures the local
+callback, exchanges the authorization code, and saves credentials to `.env` with
+owner-only permissions:
 
 ```bash
-easyparcel oauth-url
+easyparcel oauth-connect
 ```
 
-After opening that URL and completing authorization, exchange the returned code
-for an access token at EasyParcel's OAuth token endpoint, then save only the token
-in the approved local secret file as `EASYPARCEL_ACCESS_TOKEN`. The official flow
-uses `https://api.easyparcel.com/oauth/token` with HTTP Basic authentication from
-the Developer Hub client ID and secret.
+Choose the live Oh! Venus EasyParcel account during authorization, not Sandbox.
+The lower-level `easyparcel oauth-url` command remains available for manual flows.
 
 List shipment costs:
 

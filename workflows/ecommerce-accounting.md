@@ -51,7 +51,10 @@ Every summary includes a period, source report/export reference, currency, recon
 ## Read-only courier-cost CLI
 
 The supported EasyParcel command-line client lives in `easyparcel-sync/`. It can
-verify the legacy account connection and, once OAuth is authorized, list shipment
-prices, retrieve one shipment, and produce a date-bounded JSON courier-cost total.
-Its default output deliberately excludes sender and receiver personal data. The
-CLI contains no shipment submission, cancellation, payment, or other write action.
+verify the legacy account connection, run the OAuth authorization-code flow through
+a local loopback callback, list shipment prices, retrieve one shipment, and produce
+a date-bounded JSON courier-cost total. `easyparcel oauth-connect` accepts the client
+secret through a hidden terminal prompt and saves returned credentials only to the
+Git-ignored, owner-only `.env` file. Its default output deliberately excludes sender
+and receiver personal data. The CLI contains no shipment submission, cancellation,
+payment, or other operational write action.
