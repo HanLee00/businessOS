@@ -94,6 +94,16 @@ required precondition.
   Shopify shop and Meta ad-account calls before storing the key in Cloudflare;
   if the existing managed connections are not visible, use separate direct
   Shopify and Meta credentials instead.
+- The owner-created Composio project key returned zero connected accounts on
+  2026-09-03 even though Codex could read the managed Shopify and Meta
+  connections. That project offers both toolkits but requires its own auth
+  configurations. The hosted Worker therefore uses the already-verified Oh!
+  Venus Shopify client-credentials app directly; it grants `read_orders`,
+  `read_all_orders`, `read_products`, and MYR unit-cost access. Meta still needs
+  its own hosted credential or a separately connected auth configuration.
+- A preview credential uploaded to Cloudflare through non-interactive standard
+  input can include surrounding whitespace. Trim both the stored preview secret
+  and bearer token before comparison; still reject missing or unequal values.
 - A new Cloudflare account can accept a Worker upload but refuse to publish it
   until a `workers.dev` subdomain is registered. Complete the one-time subdomain
   onboarding, disable per-deployment preview URLs, redeploy, and verify the

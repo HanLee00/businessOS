@@ -11,6 +11,8 @@
   "vars": {
     "MODE": "preview_only",
     "TIME_ZONE": "Asia/Kuala_Lumpur",
+    "SHOPIFY_SHOP_DOMAIN": "9s4j4j-8d.myshopify.com",
+    "SHOPIFY_PRIMARY_DOMAIN": "ohvenus.shop",
     "ZOHO_ORGANIZATION_ID": "933897042"
   }
 }
