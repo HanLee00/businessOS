@@ -83,6 +83,10 @@ required precondition.
   listed shipment, retrieve details, verify the shipment number and AWB match, and
   use the full detail amount (including the documented BYOC composition where
   applicable). Fail the reconciliation if a detail price or identity check fails.
+- Composio's Zoho proxy rejects the shortened `/books/v3/...` path with `Invalid
+  URL Passed` before reaching Zoho. Use Zoho's complete documented
+  `https://www.zohoapis.com/books/v3/...` endpoint for proxy calls, then verify
+  every created record through a standard Zoho list/read action.
 
 ## Read-only courier-cost CLI
 

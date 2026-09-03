@@ -1,6 +1,6 @@
 schema_version: 1
 currency: MYR
-status: ohvenus_live_chart_reviewed_additions_require_approval
+status: ohvenus_accounts_created_and_verified
 
 reporting_lines:
   revenue:
@@ -19,8 +19,9 @@ reporting_lines:
         account_name: Discount
         account_type: income
         posting_direction: debit
-      - proposed_account_name: Refunds and Returns
-        proposed_account_type: income
+      - account_id: "907512000000114002"
+        account_name: Refunds and Returns
+        account_type: income
         posting_direction: debit
   cost_of_goods_sold:
     gaia_accounts: []
@@ -31,24 +32,30 @@ reporting_lines:
   payment_processing_fees:
     gaia_accounts: []
     ohvenus_accounts:
-      - proposed_account_name: Stripe Fees
-        proposed_account_type: expense
-      - proposed_account_name: Billplz Fees
-        proposed_account_type: expense
+      - account_id: "907512000000115002"
+        account_name: Stripe Fees
+        account_type: expense
+      - account_id: "907512000000116002"
+        account_name: Billplz Fees
+        account_type: expense
   fulfillment_and_courier:
     gaia_accounts: []
     ohvenus_accounts:
-      - proposed_account_name: Packaging Cost
-        proposed_account_type: cost_of_goods_sold
-      - proposed_account_name: Courier Cost
-        proposed_account_type: cost_of_goods_sold
+      - account_id: "907512000000117002"
+        account_name: Packaging Cost
+        account_type: cost_of_goods_sold
+      - account_id: "907512000000118002"
+        account_name: Courier Cost
+        account_type: cost_of_goods_sold
   advertising:
     gaia_accounts: []
     ohvenus_accounts:
-      - proposed_account_name: Meta Ads
-        proposed_account_type: expense
-      - proposed_account_name: Meta Platform Fees
-        proposed_account_type: expense
+      - account_id: "907512000000119002"
+        account_name: Meta Ads
+        account_type: expense
+      - account_id: "907512000000119006"
+        account_name: Meta Platform Fees
+        account_type: expense
   software_and_subscriptions:
     gaia_accounts: []
     ohvenus_accounts: []
@@ -85,19 +92,31 @@ ohvenus_daily_journal:
       account_id: "907512000000000376"
       account_name: Tax Payable
       account_type: other_current_liability
-  proposed_balance_sheet_accounts:
-    - proposed_account_name: Stripe Clearing
-      proposed_account_type: other_current_asset
-    - proposed_account_name: Billplz Clearing
-      proposed_account_type: other_current_asset
-    - proposed_account_name: Other Payment Clearing
-      proposed_account_type: other_current_asset
-    - proposed_account_name: Meta Payable
-      proposed_account_type: other_current_liability
-    - proposed_account_name: EasyParcel Wallet
-      proposed_account_type: other_current_asset
-    - proposed_account_name: Packaging Cost Accrual
-      proposed_account_type: other_current_liability
+  balance_sheet_accounts:
+    stripe_clearing:
+      account_id: "907512000000120002"
+      account_name: Stripe Clearing
+      account_type: other_current_asset
+    billplz_clearing:
+      account_id: "907512000000121002"
+      account_name: Billplz Clearing
+      account_type: other_current_asset
+    other_payment_clearing:
+      account_id: "907512000000122002"
+      account_name: Other Payment Clearing
+      account_type: other_current_asset
+    meta_payable:
+      account_id: "907512000000110003"
+      account_name: Meta Payable
+      account_type: other_current_liability
+    easyparcel_wallet:
+      account_id: "907512000000123002"
+      account_name: EasyParcel Wallet
+      account_type: other_current_asset
+    packaging_cost_accrual:
+      account_id: "907512000000124002"
+      account_name: Packaging Cost Accrual
+      account_type: other_current_liability
   balancing_rules:
     sales_and_payments:
       debit:

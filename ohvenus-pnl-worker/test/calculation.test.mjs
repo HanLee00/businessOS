@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { buildJournalPreview, calculateDailyPnl } from "../src/calculation.mjs";
+import { resolveAccountIds } from "../src/accounts.mjs";
 
 const snapshot = {
   currency: "MYR",
@@ -36,6 +37,12 @@ test("builds a balanced draft journal", () => {
   assert.equal(result.status, "draft");
   assert.equal(result.debitsSen, result.creditsSen);
   assert.equal(result.reference, "OHV-PNL-2026-09-01");
+});
+
+test("resolves every journal line to an approved Zoho account", () => {
+  const preview = buildJournalPreview(snapshot, { stripe: 6690, billplz: 3375 });
+  const resolved = resolveAccountIds(preview);
+  assert.ok(resolved.journalLines.every((line) => /^\d+$/.test(line.accountId)));
 });
 
 test("blocks a settlement mismatch", () => {

@@ -1,4 +1,5 @@
 import { buildJournalPreview } from "./calculation.mjs";
+import { resolveAccountIds } from "./accounts.mjs";
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body, null, 2), {
@@ -22,7 +23,8 @@ export default {
       if (!authorized(request, env)) return json({ ok: false, error: "unauthorized" }, 401);
       try {
         const input = await request.json();
-        return json({ ok: true, preview: buildJournalPreview(input.snapshot, input.clearingByGatewaySen) });
+        const preview = buildJournalPreview(input.snapshot, input.clearingByGatewaySen);
+        return json({ ok: true, preview: resolveAccountIds(preview) });
       } catch (error) {
         return json({ ok: false, error: error instanceof Error ? error.message : "invalid input" }, 400);
       }
