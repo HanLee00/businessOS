@@ -87,6 +87,13 @@ required precondition.
   URL Passed` before reaching Zoho. Use Zoho's complete documented
   `https://www.zohoapis.com/books/v3/...` endpoint for proxy calls, then verify
   every created record through a standard Zoho list/read action.
+- Active Composio connections inside Codex prove interactive access but are not
+  automatically Cloudflare credentials. A hosted Worker may use Composio only
+  with a scoped Composio project API key, pinned toolkit versions, and connected
+  account IDs visible to that same project. Verify those IDs with read-only
+  Shopify shop and Meta ad-account calls before storing the key in Cloudflare;
+  if the existing managed connections are not visible, use separate direct
+  Shopify and Meta credentials instead.
 - A new Cloudflare account can accept a Worker upload but refuse to publish it
   until a `workers.dev` subdomain is registered. Complete the one-time subdomain
   onboarding, disable per-deployment preview URLs, redeploy, and verify the
