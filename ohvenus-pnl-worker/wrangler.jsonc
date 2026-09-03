@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ohvenus-daily-pnl",
+  "main": "src/index.mjs",
+  "compatibility_date": "2026-09-02",
+  "workers_dev": true,
+  "triggers": {
+    "crons": ["0 4 * * *"]
+  },
+  "vars": {
+    "MODE": "preview_only",
+    "TIME_ZONE": "Asia/Kuala_Lumpur",
+    "ZOHO_ORGANIZATION_ID": "933897042"
+  }
+}

@@ -72,5 +72,22 @@ automations:
     action: send a reminder for a verified outstanding invoice
     external_write: true
 
+  - automation_id: finance.ohvenus_daily_pnl
+    name: Prepare Oh! Venus daily P&L journal
+    applies_to: [ohvenus]
+    trigger: "daily at 12:00 Asia/Kuala_Lumpur"
+    status: dry_run
+    approval_level: A3
+    system: cloudflare_workers_to_zoho_books
+    action: reconcile the prior Malaysia calendar day and prepare one deterministic Zoho manual-journal preview
+    external_write: false
+    prerequisites:
+      - verified Oh! Venus organization 933897042
+      - approved account mapping
+      - connected Shopify, Meta Ads, EasyParcel, and Zoho credentials in the hosted secret store
+      - balanced MYR journal and duplicate-source check
+      - seven supervised draft runs before any publishing approval
+    evidence: ohvenus-pnl-worker/README.md
+
 # Enabling unattended execution requires a documented amendment, monitoring,
 # failure handling, and explicit owner approval. No automation is active today.

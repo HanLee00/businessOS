@@ -6,6 +6,36 @@ Shopify is the detailed commerce source. Summaries must account for gross sales,
 
 Every summary includes a period, source report/export reference, currency, reconciliation difference, accounting mapping, and an idempotency key. Write only to Zoho organization `933897042` after review. Keep one record per approved summary period rather than one invoice per Shopify order unless requirements change.
 
+## Confirmed delivery architecture
+
+- Zoho Books is the only owner-facing P&L interface. Do not introduce a Google
+  Sheet or a second reporting database for this workflow.
+- Run the hosted calculation at `04:00 UTC` (`12:00 Asia/Kuala_Lumpur`) for the
+  completed prior Malaysia calendar day. Cloudflare Workers Free is the approved
+  initial runtime; measure actual limits and move plans only if observed usage
+  requires it.
+- A missed scheduled run must be recovered by scanning for missing local dates on
+  the next successful invocation. The owner's Mac is not part of the production
+  schedule and may be off.
+- The first seven successful daily outputs remain **draft manual journals** for
+  supervised comparison. Drafts are visible under Accountant > Manual Journals
+  but do not affect the standard Profit and Loss report.
+- Publishing a journal changes the accounting ledger and remains a separate A3
+  action. Do not enable automatic publishing without explicit owner approval
+  after the seven-run review.
+- Use one deterministic reference per local day: `OHV-PNL-<local-date>`. A rerun
+  updates the same draft or reports an exception; it never creates a second
+  journal for that date.
+
+## Zoho account mapping status
+
+The live Oh! Venus chart was reviewed read-only on 2026-09-02. Exact existing
+accounts and proposed additions live in `reporting/account-mapping.yaml`. Before
+creating an account or journal, preview and approve the complete balanced mapping.
+Do not post daily Shopify revenue when another Zoho sales record or bank
+categorization already represents the same activity; duplicate detection is a
+required precondition.
+
 ## Confirmed daily cost rules
 
 - Count only successful payment transactions.

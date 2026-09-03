@@ -1,26 +1,54 @@
 schema_version: 1
 currency: MYR
-status: draft_requires_account_review
+status: ohvenus_live_chart_reviewed_additions_require_approval
 
 reporting_lines:
   revenue:
     gaia_accounts: []
-    ohvenus_accounts: []
+    ohvenus_accounts:
+      - account_id: "907512000000000388"
+        account_name: Sales
+        account_type: income
+      - account_id: "907512000000014001"
+        account_name: Shipping Charge
+        account_type: income
   discounts_and_refunds:
     gaia_accounts: []
-    ohvenus_accounts: []
+    ohvenus_accounts:
+      - account_id: "907512000000000406"
+        account_name: Discount
+        account_type: income
+        posting_direction: debit
+      - proposed_account_name: Refunds and Returns
+        proposed_account_type: income
+        posting_direction: debit
   cost_of_goods_sold:
     gaia_accounts: []
-    ohvenus_accounts: []
+    ohvenus_accounts:
+      - account_id: "907512000000034003"
+        account_name: Cost of Goods Sold
+        account_type: cost_of_goods_sold
   payment_processing_fees:
     gaia_accounts: []
-    ohvenus_accounts: []
+    ohvenus_accounts:
+      - proposed_account_name: Stripe Fees
+        proposed_account_type: expense
+      - proposed_account_name: Billplz Fees
+        proposed_account_type: expense
   fulfillment_and_courier:
     gaia_accounts: []
-    ohvenus_accounts: []
+    ohvenus_accounts:
+      - proposed_account_name: Packaging Cost
+        proposed_account_type: cost_of_goods_sold
+      - proposed_account_name: Courier Cost
+        proposed_account_type: cost_of_goods_sold
   advertising:
     gaia_accounts: []
-    ohvenus_accounts: []
+    ohvenus_accounts:
+      - proposed_account_name: Meta Ads
+        proposed_account_type: expense
+      - proposed_account_name: Meta Platform Fees
+        proposed_account_type: expense
   software_and_subscriptions:
     gaia_accounts: []
     ohvenus_accounts: []
@@ -34,3 +62,76 @@ shared_expense_allocations:
 
 # Populate exact Zoho account IDs/names only after each chart of accounts is
 # reviewed. Never infer mappings from similar account names across businesses.
+
+ohvenus_daily_journal:
+  organization_id: "933897042"
+  chart_reviewed_on: 2026-09-02
+  source_activity_check:
+    period_start: 2026-08-01
+    period_end: 2026-09-02
+    manual_journals: 0
+    sales_receipts: 0
+    invoices: 0
+    expenses: 0
+    bank_transactions: 0
+  reference_pattern: OHV-PNL-<local-date>
+  status_during_trial: draft
+  existing_balance_sheet_accounts:
+    inventory_asset:
+      account_id: "907512000000034001"
+      account_name: Inventory Asset
+      account_type: stock
+    tax_payable:
+      account_id: "907512000000000376"
+      account_name: Tax Payable
+      account_type: other_current_liability
+  proposed_balance_sheet_accounts:
+    - proposed_account_name: Stripe Clearing
+      proposed_account_type: other_current_asset
+    - proposed_account_name: Billplz Clearing
+      proposed_account_type: other_current_asset
+    - proposed_account_name: Other Payment Clearing
+      proposed_account_type: other_current_asset
+    - proposed_account_name: Meta Payable
+      proposed_account_type: other_current_liability
+    - proposed_account_name: EasyParcel Wallet
+      proposed_account_type: other_current_asset
+    - proposed_account_name: Packaging Cost Accrual
+      proposed_account_type: other_current_liability
+  balancing_rules:
+    sales_and_payments:
+      debit:
+        - processor clearing for captured sales, shipping, refunds, and processor fees netted to the expected settlement
+        - Discount for Shopify discounts
+        - Stripe Fees for the confirmed Stripe fee calculation
+        - Billplz Fees for the confirmed Billplz per-transaction fee
+      credit:
+        - Sales for gross product revenue
+        - Shipping Charge for customer shipping collected
+    inventory:
+      debit:
+        - Cost of Goods Sold for Shopify product unit costs
+      credit:
+        - Inventory Asset for the same amount
+    meta:
+      debit:
+        - Meta Ads for actual daily spend
+        - Meta Platform Fees for eight percent of actual daily spend
+      credit:
+        - Meta Payable for both components
+    packaging:
+      debit:
+        - Packaging Cost for two percent of actual daily Meta spend
+      credit:
+        - Packaging Cost Accrual for the same amount
+    courier:
+      debit:
+        - Courier Cost for identity-verified EasyParcel detail totals
+      credit:
+        - EasyParcel Wallet for the same amount
+  controls:
+    - Total debits must equal total credits before draft creation.
+    - Every source amount must be denominated in MYR or fail the run.
+    - A source exception or missing EasyParcel detail cost blocks draft creation.
+    - Existing Zoho activity for the same source and date blocks the run for review.
+    - Account creation and journal creation remain separate approval-gated actions.
