@@ -88,6 +88,8 @@ automations:
       - balanced MYR journal and duplicate-source check
       - seven supervised draft runs before any publishing approval
     evidence: ohvenus-pnl-worker/README.md
+    deployment_url: https://ohvenus-daily-pnl.ohvenus-shop.workers.dev
 
-# Enabling unattended execution requires a documented amendment, monitoring,
-# failure handling, and explicit owner approval. No automation is active today.
+# The Oh! Venus preview-only cron is deployed but cannot read sources or write a
+# journal yet. Enabling financial writes requires monitoring, failure handling,
+# supervised evidence, and explicit owner approval.

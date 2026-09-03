@@ -87,6 +87,10 @@ required precondition.
   URL Passed` before reaching Zoho. Use Zoho's complete documented
   `https://www.zohoapis.com/books/v3/...` endpoint for proxy calls, then verify
   every created record through a standard Zoho list/read action.
+- A new Cloudflare account can accept a Worker upload but refuse to publish it
+  until a `workers.dev` subdomain is registered. Complete the one-time subdomain
+  onboarding, disable per-deployment preview URLs, redeploy, and verify the
+  stable Worker route and cron before treating the runtime as available.
 
 ## Read-only courier-cost CLI
 
