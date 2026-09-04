@@ -84,12 +84,14 @@ automations:
     prerequisites:
       - verified Oh! Venus organization 933897042
       - approved account mapping
-      - verified Shopify client credentials plus Meta Ads, EasyParcel, and Zoho credentials in the hosted secret store
+      - verified Shopify client credentials and read-only Meta Ads token in the hosted secret store
+      - verified EasyParcel and Zoho credentials in the hosted secret store
       - balanced MYR journal and duplicate-source check
       - seven supervised draft runs before any publishing approval
     evidence: ohvenus-pnl-worker/README.md
     deployment_url: https://ohvenus-daily-pnl.ohvenus-shop.workers.dev
 
-# The Oh! Venus preview-only cron is deployed but cannot read sources or write a
-# journal yet. Enabling financial writes requires monitoring, failure handling,
+# The Oh! Venus preview-only cron is deployed and reads exact-day Shopify and
+# Meta aggregates, but it cannot yet read hosted EasyParcel/Zoho data or write a
+# journal. Enabling financial writes requires monitoring, failure handling,
 # supervised evidence, and explicit owner approval.

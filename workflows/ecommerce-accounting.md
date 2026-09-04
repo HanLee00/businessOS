@@ -99,8 +99,21 @@ required precondition.
   connections. That project offers both toolkits but requires its own auth
   configurations. The hosted Worker therefore uses the already-verified Oh!
   Venus Shopify client-credentials app directly; it grants `read_orders`,
-  `read_all_orders`, `read_products`, and MYR unit-cost access. Meta still needs
-  its own hosted credential or a separately connected auth configuration.
+  `read_all_orders`, `read_products`, and MYR unit-cost access.
+- The hosted Meta credential uses dedicated system user `meta-token`
+  (`61592569623337`). That user is assigned only ad account `OHVENUS`
+  (`act_1383191923615307`) with partial `View performance` access. Meta required
+  full access to the `ads-codex` app before it exposed token permissions; after
+  that app assignment was refreshed, generate a non-expiring token with only
+  `ads_read`. Do not use the existing Conversions API system user for this
+  workflow because its token wizard forcibly bundles `ads_management`.
+- Store the Meta token only as Cloudflare secret `META_ACCESS_TOKEN`. Before
+  accepting spend, verify the account ID, name, active status, MYR currency,
+  `Asia/Kuala_Lumpur` timezone, and exact requested local date. Treat a missing
+  spend row as zero; fail closed on every identity, date, or amount mismatch.
+- Meta's browser Copy control can leave the system clipboard empty under browser
+  automation. Validate the full token value against the Graph API before storing
+  it, and immediately remove any protected temporary handoff file.
 - A preview credential uploaded to Cloudflare through non-interactive standard
   input can include surrounding whitespace. Trim both the stored preview secret
   and bearer token before comparison; still reject missing or unequal values.

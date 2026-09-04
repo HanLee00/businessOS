@@ -1,6 +1,7 @@
 import { buildJournalPreview } from "./calculation.mjs";
 import { resolveAccountIds } from "./accounts.mjs";
 import { previousLocalDate, readShopifyDay } from "./shopify.mjs";
+import { readMetaAdsDay } from "./meta.mjs";
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body, null, 2), {
@@ -42,6 +43,17 @@ export default {
         return json({ ok: false, error: error instanceof Error ? error.message : "source check failed" }, 400);
       }
     }
+    if (request.method === "POST" && url.pathname === "/source-check/meta") {
+      if (!authorized(request, env)) return json({ ok: false, error: "unauthorized" }, 401);
+      try {
+        const input = await request.json().catch(() => ({}));
+        const localDate = input.localDate || previousLocalDate(Date.now(), env.TIME_ZONE);
+        const source = await readMetaAdsDay(env, localDate);
+        return json({ ok: true, source });
+      } catch (error) {
+        return json({ ok: false, error: error instanceof Error ? error.message : "source check failed" }, 400);
+      }
+    }
     return json({ ok: false, error: "not found" }, 404);
   },
 
@@ -50,7 +62,10 @@ export default {
       throw new Error("Only preview_only mode is implemented and approved");
     }
     const localDate = previousLocalDate(controller.scheduledTime || Date.now(), env.TIME_ZONE);
-    const shopify = await readShopifyDay(env, localDate);
+    const [shopify, meta] = await Promise.all([
+      readShopifyDay(env, localDate),
+      readMetaAdsDay(env, localDate)
+    ]);
     console.log(JSON.stringify({
       event: "ohvenus_pnl_schedule_checked",
       mode: env.MODE,
@@ -58,6 +73,7 @@ export default {
       localDate,
       shopifyOrderCount: shopify.orderCount,
       shopifyGrossCollectedSen: shopify.grossCollectedSen,
+      metaAdsSpendSen: meta.spendSen,
       writeAttempted: false
     }));
   }

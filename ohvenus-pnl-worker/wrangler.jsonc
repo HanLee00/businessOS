@@ -13,6 +13,11 @@
     "TIME_ZONE": "Asia/Kuala_Lumpur",
     "SHOPIFY_SHOP_DOMAIN": "9s4j4j-8d.myshopify.com",
     "SHOPIFY_PRIMARY_DOMAIN": "ohvenus.shop",
+    "META_GRAPH_VERSION": "v26.0",
+    "META_AD_ACCOUNT_ID": "act_1383191923615307",
+    "META_AD_ACCOUNT_NAME": "OHVENUS",
+    "META_AD_ACCOUNT_CURRENCY": "MYR",
+    "META_AD_ACCOUNT_TIME_ZONE": "Asia/Kuala_Lumpur",
     "ZOHO_ORGANIZATION_ID": "933897042"
   }
 }
