@@ -85,13 +85,14 @@ automations:
       - verified Oh! Venus organization 933897042
       - approved account mapping
       - verified Shopify client credentials and read-only Meta Ads token in the hosted secret store
-      - verified EasyParcel and Zoho credentials in the hosted secret store
+      - verified EasyParcel credentials and rotating token vault in the hosted runtime
+      - read-only Zoho duplicate check through Composio for organization 933897042
       - balanced MYR journal and duplicate-source check
       - seven supervised draft runs before any publishing approval
     evidence: ohvenus-pnl-worker/README.md
     deployment_url: https://ohvenus-daily-pnl.ohvenus-shop.workers.dev
 
-# The Oh! Venus preview-only cron is deployed and reads exact-day Shopify and
-# Meta aggregates, but it cannot yet read hosted EasyParcel/Zoho data or write a
-# journal. Enabling financial writes requires monitoring, failure handling,
-# supervised evidence, and explicit owner approval.
+# The Oh! Venus preview-only cron combines normalized Shopify, scoped Meta, and
+# identity-verified EasyParcel detail costs in a balanced daily preview. It
+# recovers consecutive missed dates and suppresses completed dates, but has no
+# Zoho write path. Financial writes remain explicitly approval-gated.

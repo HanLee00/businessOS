@@ -136,3 +136,27 @@ OAuth access tokens are short-lived. Before a shipment read, the CLI checks the
 recorded expiry and refreshes tokens within five minutes of expiry using the stored
 refresh token and Developer Hub client credentials. A hosted job must preserve the
 rotated refresh token in its secret store; it must not rely on a copied access token.
+
+## Hosted preview verification
+
+- On 2026-09-07, Worker version `1bc6478c-a7a1-40ed-ab53-bf1d14010aa0`
+  combined Shopify, Meta Ads, and EasyParcel in `preview_only` mode. EasyParcel
+  OAuth rotation is serialized in a SQLite-backed Durable Object; its bootstrap
+  credentials remain Cloudflare secrets.
+- The 2026-09-06 hosted EasyParcel result matched the local CLI: one
+  identity-matched shipment at MYR 6.49 using the shipment-detail
+  `pricing.total_price`. Duplicate shipments, identity mismatches, missing final
+  prices, non-MYR amounts, and invalid dates fail closed.
+- The same date normalized two Shopify orders into MYR 728.00 product sales,
+  MYR 30.00 shipping income, MYR 30.00 discounts, no refunds, two successful
+  gateway transactions, and MYR 324.00 COGS. With MYR 81.72 Meta spend, the
+  preview balanced at MYR 1,178.38 per side and reported MYR 294.30 net profit.
+- A supervised recovery test seeded 2026-09-04, recovered 2026-09-05 and
+  2026-09-06 in order, and returned no work on an immediate repeat. State is
+  stored outside this instruction repository and keyed by `OHV-PNL-YYYY-MM-DD`.
+- Composio verified organization `933897042` as active Oh! Venus in MYR and
+  `Asia/Kuala_Lumpur`, and found no journal for `OHV-PNL-2026-09-06`. No Zoho
+  record was created or changed.
+- Remaining control: completed dates are not yet periodically reopened for late
+  Shopify refunds or other source adjustments. Add a bounded late-adjustment
+  rescan before any journal write.
