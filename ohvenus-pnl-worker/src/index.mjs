@@ -4,6 +4,7 @@ import { previousLocalDate, readShopifyDay, readShopifyIdentity } from "./shopif
 import { readMetaAdsDay } from "./meta.mjs";
 import { readEasyParcelDay, createShipmentCache } from "./easyparcel.mjs";
 import { recoveryDates, rescanDates, recordRun, listRuns, MAX_DAYS_PER_RUN } from "./state.mjs";
+import { upsertDailyJournal, assertOhVenusOrganization } from "./zoho.mjs";
 export { EasyParcelTokenVault } from "./easyparcel.mjs";
 export { OhVenusPnlState } from "./state.mjs";
 
@@ -103,6 +104,25 @@ async function dailyPreview(env, localDate, cache = null) {
   };
 }
 
+// preview_only writes nothing. publish_draft posts a draft, visible in Manual
+// Journals but absent from the P&L report. publish posts a published journal,
+// which is the only status that moves the Profit and Loss report.
+const WRITE_MODES = new Set(["publish_draft", "publish"]);
+
+function zohoStatusFor(mode) {
+  if (mode === "publish") return "published";
+  if (mode === "publish_draft") return "draft";
+  return null;
+}
+
+async function writeToZoho(env, result) {
+  const status = zohoStatusFor(env.MODE);
+  if (!status) return { attempted: false, action: "skipped", reason: "preview_only" };
+  assertOhVenusOrganization(env);
+  const outcome = await upsertDailyJournal(env, result.preview, { status });
+  return { attempted: true, ...outcome };
+}
+
 function summarize(localDate, result, state, mode) {
   return {
     localDate,
@@ -124,7 +144,8 @@ function summarize(localDate, result, state, mode) {
     netProfitSen: result.preview.netProfitSen,
     duplicate: state.duplicate,
     changed: state.changed,
-    writeAttempted: false
+    zoho: result.zoho || { attempted: false, action: "skipped" },
+    writeAttempted: Boolean(result.zoho?.attempted)
   };
 }
 
@@ -138,6 +159,7 @@ async function runRecovery(env, targetDate, backfillDates = null) {
     : await recoveryDates(env, targetDate);
   for (const localDate of dates) {
     const result = await dailyPreview(env, localDate, cache);
+    result.zoho = await writeToZoho(env, result);
     const summary = summarize(localDate, result, { duplicate: false, changed: false }, "new");
     const state = await recordRun(env, result, { summary });
     results.push({ ...summarize(localDate, result, state, "new"), pendingAfterRun });
@@ -149,6 +171,7 @@ async function runRecovery(env, targetDate, backfillDates = null) {
   const { dates: toRescan, windowSize } = await rescanDates(env, targetDate, dates);
   for (const localDate of toRescan) {
     const result = await dailyPreview(env, localDate, cache);
+    result.zoho = await writeToZoho(env, result);
     const summary = summarize(localDate, result, { duplicate: false, changed: false }, "rescan");
     const state = await recordRun(env, result, { rescan: true, summary });
     rescans.push({ ...summarize(localDate, result, state, "rescan"), rescanWindowSize: windowSize });
@@ -239,10 +262,11 @@ export default {
     if (request.method === "POST" && url.pathname === "/daily-preview") {
       if (!authorized(request, env)) return json({ ok: false, error: "unauthorized" }, 401);
       try {
-        if (env.MODE !== "preview_only") throw new Error("Only preview_only mode is implemented and approved");
+        if (env.MODE !== "preview_only" && !WRITE_MODES.has(env.MODE)) throw new Error(`Unsupported MODE ${env.MODE}`);
         if (env.ZOHO_ORGANIZATION_ID !== "933897042") throw new Error("Zoho organization did not match Oh! Venus");
         const input = await request.json().catch(() => ({}));
         const localDate = input.localDate || previousLocalDate(Date.now(), env.TIME_ZONE);
+        // This route never writes; it is the read-only inspection path.
         return json({ ok: true, result: await dailyPreview(env, localDate) });
       } catch (error) {
         return json({ ok: false, error: error instanceof Error ? error.message : "daily preview failed" }, 400);
@@ -251,7 +275,7 @@ export default {
     if (request.method === "POST" && url.pathname === "/recover-previews") {
       if (!authorized(request, env)) return json({ ok: false, error: "unauthorized" }, 401);
       try {
-        if (env.MODE !== "preview_only") throw new Error("Only preview_only mode is implemented and approved");
+        if (env.MODE !== "preview_only" && !WRITE_MODES.has(env.MODE)) throw new Error(`Unsupported MODE ${env.MODE}`);
         if (env.ZOHO_ORGANIZATION_ID !== "933897042") throw new Error("Zoho organization did not match Oh! Venus");
         const input = await request.json().catch(() => ({}));
         const targetDate = input.targetDate || previousLocalDate(Date.now(), env.TIME_ZONE);
@@ -272,8 +296,8 @@ export default {
   },
 
   async scheduled(controller, env) {
-    if (env.MODE !== "preview_only") {
-      throw new Error("Only preview_only mode is implemented and approved");
+    if (env.MODE !== "preview_only" && !WRITE_MODES.has(env.MODE)) {
+      throw new Error(`Unsupported MODE ${env.MODE}`);
     }
     const targetDate = previousLocalDate(controller.scheduledTime || Date.now(), env.TIME_ZONE);
     if (env.ZOHO_ORGANIZATION_ID !== "933897042") throw new Error("Zoho organization did not match Oh! Venus");
