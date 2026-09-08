@@ -210,17 +210,28 @@ rotated refresh token in its secret store; it must not rely on a copied access t
   stored token is rejected, so re-uploading that secret is enough to recover.
   Before this, an externally rotated token bricked the hosted read permanently.
 
-## EasyParcel books shipments a day early (fixed 2026-09-08)
+## Courier cost is recognised on the order's date (owner decision, 2026-09-08)
 
-- `coll_date` is returned in UTC and is always `16:00:00`, which is 00:00 the
-  next day in Malaysia. The shipment-list `date_from`/`date_to` filter matches
-  the raw date part, so querying local day D returned the shipments belonging to
-  D+1 and every day's courier cost was booked one day early.
-- Confirmed against the portal: `ES-2608-MGPMS` has `coll_date`
-  `2026-08-31 16:00:00` and the portal shows `Date: 2026-09-01`.
-- The query is now buffered one day either side and each shipment is kept only
-  when its Malaysia-local collection date equals the target day. A shipment with
-  no `coll_date` fails closed rather than being silently dropped from every day.
+- `coll_date` is the only date the shipment API exposes. There is no booking,
+  payment, or created date anywhere in the record.
+- `coll_date` is the *scheduled* collection date, not an event that has happened:
+  `ES-2609-DA9AH` carried a future `coll_date` while its status was still
+  `Schedule In Arrangement`. It can also move if collection is rescheduled.
+- It is also returned in UTC at `16:00:00`, which is 00:00 the next day in
+  Malaysia, so filtering the list on its raw date part booked cost a day early.
+  Confirmed against the portal, which shows `2026-09-01` for the shipment whose
+  `coll_date` is `2026-08-31 16:00:00`.
+- The AWB is bought and the wallet debited when the order is placed, so the
+  expense is incurred on the order's day. Courier cost is therefore assigned to
+  the day of the Shopify order named in `shipment_details.reference`, matching
+  each order's courier cost to the revenue that caused it in the same period.
+- The shipment list is scanned from one day before to `COLLECTION_LOOKAHEAD_DAYS`
+  (7) after the target day, so a parcel collected days later is still found and
+  still booked to its order's day.
+- Known gap: an order whose shipment is not booked by the time the day is
+  calculated reports under `ordersWithoutShipment` and its courier cost appears
+  only on a later rescan. This is the courier form of the late-adjustment
+  control and must be resolved before any journal write.
 
 ## Per-order courier attribution
 

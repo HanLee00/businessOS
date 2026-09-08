@@ -62,8 +62,8 @@ test("totals the full detail price even when detail contains a lower price", asy
   const { env } = envWithVault();
   const fetcher = async (url) => String(url).endsWith("/shipment/list")
     ? new Response(JSON.stringify({ status_code: 200, data: [{ shipment_number: "S1", awb: "A1" }] }))
-    : new Response(JSON.stringify({ status_code: 200, data: { shipment_number: "S1", shipment_details: { coll_date: "2026-09-02 16:00:00", awb_number: "A1" }, pricing: { price: "6.12", total_price: "6.49", currency_code: "MYR" } } }));
-  const result = await readEasyParcelDay(env, "2026-09-03", fetcher);
+    : new Response(JSON.stringify({ status_code: 200, data: { shipment_number: "S1", shipment_details: { reference: "#1180", coll_date: "2026-09-02 16:00:00", awb_number: "A1" }, pricing: { price: "6.12", total_price: "6.49", currency_code: "MYR" } } }));
+  const result = await readEasyParcelDay(env, "2026-09-03", ["#1180"], fetcher);
   assert.equal(result.courierCostSen, 649);
   assert.equal(result.shipmentCount, 1);
 });
@@ -72,14 +72,14 @@ test("uses BYOC shipment and EasyParcel charges together", async () => {
   const { env } = envWithVault();
   const fetcher = async (url) => String(url).endsWith("/shipment/list")
     ? new Response(JSON.stringify({ status_code: 200, data: [{ shipment_number: "S2" }] }))
-    : new Response(JSON.stringify({ status_code: 200, data: { shipment_number: "S2", shipment_details: { coll_date: "2026-09-02 16:00:00" }, pricing: { total_price: "0.50", shipment_price: "7.00", byoc_charges: "0.50", currency_code: "MYR" } } }));
-  const result = await readEasyParcelDay(env, "2026-09-03", fetcher);
+    : new Response(JSON.stringify({ status_code: 200, data: { shipment_number: "S2", shipment_details: { reference: "#1180", coll_date: "2026-09-02 16:00:00" }, pricing: { total_price: "0.50", shipment_price: "7.00", byoc_charges: "0.50", currency_code: "MYR" } } }));
+  const result = await readEasyParcelDay(env, "2026-09-03", ["#1180"], fetcher);
   assert.equal(result.courierCostSen, 750);
 });
 
 test("treats a 404 shipment list as an empty day", async () => {
   const { env } = envWithVault();
-  const result = await readEasyParcelDay(env, "2026-09-03", async () => new Response("", { status: 404 }));
+  const result = await readEasyParcelDay(env, "2026-09-03", ["#1180"], async () => new Response("", { status: 404 }));
   assert.equal(result.shipmentCount, 0);
   assert.equal(result.courierCostSen, 0);
 });
@@ -92,12 +92,12 @@ test("rejects duplicate shipment records instead of double counting", async () =
     page += 1;
     return new Response(JSON.stringify({ status_code: 200, has_more: page === 1, data: page === 1 ? firstPage : [{ shipment_number: "S0" }] }));
   };
-  await assert.rejects(() => readEasyParcelDay(env, "2026-09-03", fetcher), /duplicate shipment S0/);
+  await assert.rejects(() => readEasyParcelDay(env, "2026-09-03", ["#1180"], fetcher), /duplicate shipment S0/);
 });
 
 test("fails closed on invalid dates and source mismatches", async () => {
   const { env } = envWithVault();
-  await assert.rejects(() => readEasyParcelDay(env, "2026-02-30", async () => {}), /real calendar date/);
+  await assert.rejects(() => readEasyParcelDay(env, "2026-02-30", ["#1180"], async () => {}), /real calendar date/);
   await assert.rejects(() => readEasyParcelDay({ ...env, TIME_ZONE: "UTC" }, "2026-09-03", async () => {}), /timezone did not match/);
   const cases = [
     [{ shipment_number: "WRONG", pricing: { total_price: "1", currency_code: "MYR" } }, /identity mismatch/],
@@ -108,7 +108,7 @@ test("fails closed on invalid dates and source mismatches", async () => {
     const fetcher = async (url) => String(url).endsWith("/shipment/list")
       ? new Response(JSON.stringify({ status_code: 200, data: [{ shipment_number: "S1" }] }))
       : new Response(JSON.stringify({ status_code: 200, data: detail }));
-    await assert.rejects(() => readEasyParcelDay(env, "2026-09-03", fetcher), expected);
+    await assert.rejects(() => readEasyParcelDay(env, "2026-09-03", ["#1180"], fetcher), expected);
   }
 });
 
@@ -119,7 +119,7 @@ test("exposes every price component so a preview can be reconciled to the invoic
     }
     return new Response(JSON.stringify({ status_code: "200", data: {
       shipment_number: "ES-1",
-      shipment_details: { coll_date: "2026-09-05 16:00:00", awb_number: "AWB1" },
+      shipment_details: { reference: "#1180", coll_date: "2026-09-05 16:00:00", awb_number: "AWB1" },
       pricing: { total_price: "6.49", shipment_price: "6.29", addon_price: "0.20", currency_code: "MYR" }
     } }));
   };
@@ -127,7 +127,7 @@ test("exposes every price component so a preview can be reconciled to the invoic
     TIME_ZONE: "Asia/Kuala_Lumpur", EASYPARCEL_ACCOUNT_REGION: "Malaysia",
     EASYPARCEL_TOKEN_VAULT: { idFromName: () => "id", get: () => ({ fetch: async () => Response.json({ accessToken: "t" }) }) }
   };
-  const result = await readEasyParcelDay(env, "2026-09-06", fetcher);
+  const result = await readEasyParcelDay(env, "2026-09-06", ["#1180"], fetcher);
   const shipment = result.shipments[0];
   assert.equal(shipment.priceSource, "pricing.total_price");
   // Each component EasyParcel returned is preserved for reconciliation.
@@ -143,7 +143,7 @@ test("flags a shipment whose chosen price is smaller than a returned component",
     }
     return new Response(JSON.stringify({ status_code: "200", data: {
       shipment_number: "ES-2",
-      shipment_details: { coll_date: "2026-09-05 16:00:00", awb_number: "AWB2" },
+      shipment_details: { reference: "#1180", coll_date: "2026-09-05 16:00:00", awb_number: "AWB2" },
       pricing: { total_price: "6.49", total_amount: "6.69", currency_code: "MYR" }
     } }));
   };
@@ -151,7 +151,7 @@ test("flags a shipment whose chosen price is smaller than a returned component",
     TIME_ZONE: "Asia/Kuala_Lumpur", EASYPARCEL_ACCOUNT_REGION: "Malaysia",
     EASYPARCEL_TOKEN_VAULT: { idFromName: () => "id", get: () => ({ fetch: async () => Response.json({ accessToken: "t" }) }) }
   };
-  const result = await readEasyParcelDay(env, "2026-09-06", fetcher);
+  const result = await readEasyParcelDay(env, "2026-09-06", ["#1180"], fetcher);
   assert.equal(result.shipments[0].priceUnderChosen, 20);
   assert.equal(result.priceReviewRequiredCount, 1);
 });
@@ -169,14 +169,14 @@ const maskedFetcher = async (url) => {
   }
   return new Response(JSON.stringify({ status_code: "200", data: {
     shipment_number: "ES-2608-MGPMS",
-    shipment_details: { coll_date: "2026-08-31 16:00:00", awb_number: "7328089358633416" },
+    shipment_details: { reference: "#1180", coll_date: "2026-08-31 16:00:00", awb_number: "7328089358633416" },
     pricing: { shipment_price: "6.12", tax_price: "0.37", total_price: "6.49", insurance: null, sms_notification: null, currency_code: "MYR" }
   } }));
 };
 
 test("adds the account addon the detail API omits, matching the RM6.69 invoice", async () => {
   const env = vaultEnv({ EASYPARCEL_ADDON_PER_SHIPMENT_SEN: "20" });
-  const result = await readEasyParcelDay(env, "2026-09-01", maskedFetcher);
+  const result = await readEasyParcelDay(env, "2026-09-01", ["#1180"], maskedFetcher);
   const shipment = result.shipments[0];
   assert.equal(shipment.apiCostSen, 649);
   assert.equal(shipment.addonSen, 20);
@@ -187,14 +187,14 @@ test("adds the account addon the detail API omits, matching the RM6.69 invoice",
 });
 
 test("applies no addon when masking is switched off", async () => {
-  const result = await readEasyParcelDay(vaultEnv(), "2026-09-01", maskedFetcher);
+  const result = await readEasyParcelDay(vaultEnv(), "2026-09-01", ["#1180"], maskedFetcher);
   assert.equal(result.courierCostSen, 649);
   assert.equal(result.addonCourierCostSen, 0);
 });
 
 test("rejects a malformed addon setting instead of guessing", async () => {
   const env = vaultEnv({ EASYPARCEL_ADDON_PER_SHIPMENT_SEN: "0.20" });
-  await assert.rejects(() => readEasyParcelDay(env, "2026-09-01", maskedFetcher), /whole number of sen/);
+  await assert.rejects(() => readEasyParcelDay(env, "2026-09-01", ["#1180"], maskedFetcher), /whole number of sen/);
 });
 
 test("recovers when another client rotated the stored refresh token", async () => {
@@ -217,38 +217,49 @@ test("recovers when another client rotated the stored refresh token", async () =
   assert.equal(storage.get("oauth").refreshToken, "rotated");
 });
 
-test("books a shipment on its Malaysia collection day, not the raw API date", async () => {
-  // coll_date is UTC 16:00, which is 00:00 the next day in Malaysia. The portal
-  // shows 2026-09-06, so this cost belongs to 2026-09-06 and not 2026-09-05.
+test("books courier cost on the order's day even when collection is days later", async () => {
   const detail = {
-    "ES-EARLY": { coll_date: "2026-09-04 16:00:00", price: "5.00" },
-    "ES-ONDAY": { coll_date: "2026-09-05 16:00:00", price: "6.49" }
+    "ES-MINE":  { coll_date: "2026-09-10 16:00:00", price: "6.49", ref: "#1181" },
+    "ES-OTHER": { coll_date: "2026-09-05 16:00:00", price: "9.99", ref: "#1177" }
   };
-  const realFetcher = async (url, options) => {
+  const fetcher = async (url, options) => {
     if (url.includes("/shipment/list")) {
       return new Response(JSON.stringify({ status_code: "200", data: [
-        { shipment_number: "ES-EARLY" }, { shipment_number: "ES-ONDAY" }
+        { shipment_number: "ES-MINE" }, { shipment_number: "ES-OTHER" }
       ], has_more: false }));
     }
     const sn = JSON.parse(options.body).shipment_number;
     const d = detail[sn];
     return new Response(JSON.stringify({ status_code: "200", data: {
       shipment_number: sn,
-      shipment_details: { coll_date: d.coll_date, awb_number: `AWB-${sn}`, reference: "#1180" },
+      shipment_details: { coll_date: d.coll_date, awb_number: `AWB-${sn}`, reference: d.ref },
       pricing: { total_price: d.price, currency_code: "MYR" }
     } }));
   };
-  const result = await readEasyParcelDay(vaultEnv(), "2026-09-06", realFetcher);
+  // Only #1181 was ordered on this day. Its parcel is collected four days later
+  // and still belongs here; #1177's parcel belongs to an earlier day.
+  const result = await readEasyParcelDay(vaultEnv(), "2026-09-06", ["#1181"], fetcher);
   assert.equal(result.shipmentCount, 1);
-  assert.equal(result.shipments[0].shipmentNumber, "ES-ONDAY");
-  assert.equal(result.shipments[0].collectionLocalDate, "2026-09-06");
-  assert.equal(result.shipments[0].orderReference, "#1180");
+  assert.equal(result.shipments[0].shipmentNumber, "ES-MINE");
+  assert.equal(result.shipments[0].collectionLocalDate, "2026-09-11");
   assert.equal(result.courierCostSen, 649);
+  assert.equal(result.basis, "order_date");
+  assert.equal(result.ordersWithoutShipment, 0);
+});
+
+test("reports an order whose shipment is not booked yet", async () => {
+  const fetcher = async (url) => url.includes("/shipment/list")
+    ? new Response(JSON.stringify({ status_code: "200", data: [], has_more: false }))
+    : new Response(JSON.stringify({ status_code: "200", data: {} }));
+  const result = await readEasyParcelDay(vaultEnv(), "2026-09-06", ["#1181", "#1182"], fetcher);
+  assert.equal(result.shipmentCount, 0);
+  assert.equal(result.courierCostSen, 0);
+  assert.equal(result.ordersWithoutShipment, 2);
 });
 
 test("fails closed when a shipment has no collection date", async () => {
   const fetcher = async (url) => url.includes("/shipment/list")
     ? new Response(JSON.stringify({ status_code: "200", data: [{ shipment_number: "S9" }], has_more: false }))
-    : new Response(JSON.stringify({ status_code: "200", data: { shipment_number: "S9", shipment_details: {}, pricing: { total_price: "6.49", currency_code: "MYR" } } }));
-  await assert.rejects(() => readEasyParcelDay(vaultEnv(), "2026-09-06", fetcher), /no collection date/);
+    : new Response(JSON.stringify({ status_code: "200", data: { shipment_number: "S9", shipment_details: { reference: "#1180" }, pricing: { total_price: "6.49", currency_code: "MYR" } } }));
+  await assert.rejects(() => readEasyParcelDay(vaultEnv(), "2026-09-06", ["#1180"], fetcher), /no collection date/);
 });

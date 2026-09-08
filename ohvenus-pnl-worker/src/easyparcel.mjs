@@ -4,6 +4,11 @@ const TOKEN_URL = "https://api.easyparcel.com/oauth/token";
 const TOKEN_OBJECT_NAME = "ohvenus-oauth";
 const TOKEN_KEY = "oauth";
 const DETAIL_CONCURRENCY = 5;
+// A shipment is booked and paid when the order is placed, but the only date the
+// API exposes is the scheduled collection date, which can fall days later. The
+// window is scanned forward so an order's shipment is found whenever it is
+// collected, then costs are assigned to the order's own day.
+const COLLECTION_LOOKAHEAD_DAYS = 7;
 export const MAX_SHIPMENTS_PER_DAY = 40;
 
 function requireValue(value, name) {
@@ -178,7 +183,7 @@ async function listShipments(localDate, token, fetcher) {
   const seenShipments = new Set();
   let cursor;
   for (let pageNumber = 0; pageNumber < 100; pageNumber += 1) {
-    const payload = { date_from: shiftLocalDate(localDate, -1), date_to: shiftLocalDate(localDate, 1), limit: 250 };
+    const payload = { date_from: shiftLocalDate(localDate, -1), date_to: shiftLocalDate(localDate, COLLECTION_LOOKAHEAD_DAYS), limit: 250 };
     if (cursor) payload.before_shipment_number = cursor;
     const body = await postJson(`${LIST_API_BASE}/shipment/list`, token, payload, fetcher, true);
     if (!body) break;
@@ -290,7 +295,12 @@ async function shipmentCost(env, listed, token, fetcher, timeZone) {
   };
 }
 
-export async function readEasyParcelDay(env, localDate, fetcher = fetch) {
+export function normalizeReference(value) {
+  const raw = String(value == null ? "" : value).trim().replace(/^#/, "").toLowerCase();
+  return raw || null;
+}
+
+export async function readEasyParcelDay(env, localDate, orderReferences = [], fetcher = fetch) {
   assertLocalDate(localDate);
   assertScope(env);
   const timeZone = env.TIME_ZONE;
@@ -306,8 +316,11 @@ export async function readEasyParcelDay(env, localDate, fetcher = fetch) {
     const batch = listed.slice(index, index + DETAIL_CONCURRENCY);
     shipments.push(...await Promise.all(batch.map((item) => shipmentCost(env, item, token, fetcher, timeZone))));
   }
-  // The buffered window pulls neighbouring days; keep only this Malaysia day.
-  const onDay = shipments.filter((shipment) => shipment.collectionLocalDate === localDate);
+  // Courier cost belongs to the day its order was placed, because the AWB is
+  // bought then. The scanned window covers later collection dates, so keep only
+  // the shipments booked against this day's orders.
+  const wanted = new Set((orderReferences || []).map((name) => normalizeReference(name)).filter(Boolean));
+  const onDay = shipments.filter((shipment) => wanted.has(normalizeReference(shipment.orderReference)));
   return {
     source: "easyparcel",
     localDate,
@@ -319,6 +332,10 @@ export async function readEasyParcelDay(env, localDate, fetcher = fetch) {
     addonCourierCostSen: onDay.reduce((total, shipment) => total + shipment.addonSen, 0),
     addonPerShipmentSen: addonPerShipmentSen(env),
     priceReviewRequiredCount: onDay.filter((shipment) => shipment.priceUnderChosen > 0).length,
+    basis: "order_date",
+    // Orders in the day that have no shipment booked yet. Their courier cost is
+    // not yet knowable and will appear on a later rescan.
+    ordersWithoutShipment: [...wanted].filter((ref) => !onDay.some((s) => normalizeReference(s.orderReference) === ref)).length,
     shipments: onDay
   };
 }

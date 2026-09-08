@@ -68,11 +68,13 @@ export function matchCourierCostsToOrders(shopify, easyparcel) {
 }
 
 async function dailyPreview(env, localDate) {
-  const [shopify, meta, easyparcel] = await Promise.all([
+  // EasyParcel is keyed off this day's order names, so Shopify is read first.
+  const [shopify, meta] = await Promise.all([
     readShopifyDay(env, localDate),
-    readMetaAdsDay(env, localDate),
-    readEasyParcelDay(env, localDate)
+    readMetaAdsDay(env, localDate)
   ]);
+  const orderReferences = (shopify.orders || []).map((order) => order.orderName);
+  const easyparcel = await readEasyParcelDay(env, localDate, orderReferences);
   const snapshot = {
     currency: "MYR",
     localDate,
@@ -115,6 +117,7 @@ async function runRecovery(env, targetDate) {
       metaAdsSpendSen: result.sources.meta.spendSen,
       easyParcelShipmentCount: result.sources.easyparcel.shipmentCount,
       easyParcelCourierCostSen: result.sources.easyparcel.courierCostSen,
+      ordersWithoutShipment: result.sources.easyparcel.ordersWithoutShipment,
       shopifyRefundCount: result.sources.shopify.refundCount,
       shopifyRefundsSen: result.sources.shopify.revenue.refundsSen,
       debitsSen: result.preview.debitsSen,
@@ -195,7 +198,8 @@ export default {
       try {
         const input = await request.json().catch(() => ({}));
         const localDate = input.localDate || previousLocalDate(Date.now(), env.TIME_ZONE);
-        const source = await readEasyParcelDay(env, localDate);
+        const references = Array.isArray(input.orderReferences) ? input.orderReferences : null;
+        const source = await readEasyParcelDay(env, localDate, references ?? (await readShopifyDay(env, localDate)).orders.map((o) => o.orderName));
         return json({ ok: true, source });
       } catch (error) {
         return json({ ok: false, error: error instanceof Error ? error.message : "source check failed" }, 400);
