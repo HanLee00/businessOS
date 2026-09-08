@@ -137,6 +137,16 @@ recorded expiry and refreshes tokens within five minutes of expiry using the sto
 refresh token and Developer Hub client credentials. A hosted job must preserve the
 rotated refresh token in its secret store; it must not rely on a copied access token.
 
+## Hosted Shopify app identity
+
+- The Worker authenticates as the Shopify custom app **`seo-optimizer-read-only`**
+  (`seo-optimizer-readonly-1`) via client credentials, not through Composio and
+  not via `ohvenus-composio`. The client id is a write-only Cloudflare secret, so
+  `POST /source-check/identity` is the only way to confirm which app is in use.
+- Granted: `read_all_orders`, `read_content`, `read_customers`,
+  `read_online_store_navigation`, `read_online_store_pages`, `read_orders`,
+  `read_products`.
+
 ## Hosted preview verification
 
 - On 2026-09-07, Worker version `1bc6478c-a7a1-40ed-ab53-bf1d14010aa0`
@@ -173,13 +183,44 @@ rotated refresh token in its secret store; it must not rely on a copied access t
   revenue and a negative gateway clearing balance. Both are represented in the
   journal as credits and still balance.
 
+## EasyParcel omits addon charges (verified 2026-09-08)
+
+- The shipment-detail `pricing` object returns only `shipment_price` and
+  `tax_price` (6% SST on shipping), summing to `total_price`. Every addon slot
+  (`insurance`, `sms_notification`, `whatsapp_notification`, `email_notification`,
+  `awb_branding`, `ddp`) was null. The shipment-list price is lower still, at
+  base shipping alone.
+- The portal invoice for `ES-2608-MGPMS` (order `#1178`) shows Base Shipping
+  MYR 6.12, Delivery Tax MYR 0.37, Mask Sender Details MYR 0.09, Mask Parcel
+  Details MYR 0.09, and MYR 0.01 tax on each mask line: MYR 6.69 paid. The API
+  reports MYR 6.49. The mask charges are not exposed by any endpoint.
+- Courier cost is therefore `apiCostSen` plus `EASYPARCEL_ADDON_PER_SHIPMENT_SEN`
+  (currently 20 sen), reported separately as `apiCourierCostSen` and
+  `addonCourierCostSen` so the configured portion stays visible. Set it to 0 if
+  account-level masking is turned off, and revisit if EasyParcel changes rates.
+- Verified across every shipment from 2026-08-25 to 2026-09-08: masked parcels
+  are a constant MYR 6.12 + 0.37, so the addon is flat per shipment and does not
+  scale with parcel size.
+
+## EasyParcel refresh tokens are single-use
+
+- The hosted vault and the local CLI cannot share one refresh token. A local
+  `oauth-connect` invalidates the hosted copy and vice versa.
+- The vault now falls back to the `EASYPARCEL_REFRESH_TOKEN` secret when its
+  stored token is rejected, so re-uploading that secret is enough to recover.
+  Before this, an externally rotated token bricked the hosted read permanently.
+
 ## Per-order courier attribution
 
 - Each EasyParcel shipment-detail cost is matched to the Shopify order it
   shipped, by AWB against the order's fulfillment tracking numbers.
-- This requires the Shopify app to hold the fulfillment read scopes. If they are
-  missing, the day still produces a complete and correct P&L with
-  `courierAttributionAvailable: false` and no per-order breakdown.
+- `Order.fulfillments.trackingInfo` resolves on `read_orders` / `read_all_orders`.
+  The fulfillment-order scopes listed by schema validation are only required for
+  `FulfillmentOrder` objects, which this Worker never reads. Attribution works on
+  the current grant; verified live on 2026-09-07 at 1/1 matched.
+- If order read access were ever lost, the day still produces a complete and
+  correct P&L with `courierAttributionAvailable: false` and no per-order
+  breakdown.
 - A shipment whose order was placed on an earlier day cannot match inside a
   single day's order set. It is reported under `unattributed`, never dropped,
   and its cost is still included in the day's courier total.

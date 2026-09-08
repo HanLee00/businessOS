@@ -289,11 +289,16 @@ export async function readShopifyIdentity(env, fetcher = fetch) {
   const data = await graphql(env, token, IDENTITY_QUERY, {}, fetcher);
   const install = data.currentAppInstallation || {};
   const scopes = (install.accessScopes || []).map((scope) => scope.handle).sort();
-  const required = [
+  // Order.fulfillments.trackingInfo resolves on read_orders/read_all_orders.
+  // The fulfillment-order scopes below are only needed for FulfillmentOrder
+  // objects, which this Worker never reads, so they are reported for
+  // information and are not a precondition for courier attribution.
+  const fulfillmentOrderScopes = [
     "read_assigned_fulfillment_orders",
     "read_merchant_managed_fulfillment_orders",
     "read_third_party_fulfillment_orders"
   ];
+  const orderReadScopes = ["read_orders", "read_all_orders"];
   return {
     app: { title: install.app?.title || null, handle: install.app?.handle || null },
     shop: {
@@ -303,8 +308,11 @@ export async function readShopifyIdentity(env, fetcher = fetch) {
       timeZone: data.shop.ianaTimezone
     },
     grantedScopes: scopes,
-    missingFulfillmentScopes: required.filter((scope) => !scopes.includes(scope)),
-    courierAttributionReady: required.every((scope) => scopes.includes(scope))
+    orderReadScopesGranted: orderReadScopes.filter((scope) => scopes.includes(scope)),
+    fulfillmentOrderScopesGranted: fulfillmentOrderScopes.filter((scope) => scopes.includes(scope)),
+    // Attribution needs order read access only; the authoritative status is
+    // courierAttributionAvailable on each daily Shopify read.
+    courierAttributionReady: orderReadScopes.some((scope) => scopes.includes(scope))
   };
 }
 
