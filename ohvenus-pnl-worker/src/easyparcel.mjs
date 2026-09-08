@@ -164,14 +164,42 @@ async function listShipments(localDate, token, fetcher) {
   return shipments;
 }
 
+const PRICE_COMPONENT_FIELDS = [
+  "total_price", "shipment_price", "byoc_charges", "byoc_charges_tax",
+  "total_amount", "price", "addon_price", "insurance_price", "tax", "tax_price"
+];
+
+// Every numeric component EasyParcel returned, so a preview can be reconciled
+// against the real invoice instead of trusting one chosen field silently.
+function priceComponents(pricing) {
+  const components = {};
+  for (const field of PRICE_COMPONENT_FIELDS) {
+    const raw = pricing[field];
+    if (raw == null || raw === "") continue;
+    const value = Number(raw);
+    if (Number.isFinite(value)) components[field] = Math.round(value * 100);
+  }
+  for (const [key, raw] of Object.entries(pricing)) {
+    if (components[key] !== undefined) continue;
+    if (!/price|charge|amount|fee|tax|insur|addon/i.test(key)) continue;
+    const value = Number(raw);
+    if (raw !== null && raw !== "" && Number.isFinite(value)) components[key] = Math.round(value * 100);
+  }
+  return components;
+}
+
 function detailMoneyValue(pricing) {
   const total = pricing.total_price == null || pricing.total_price === "" ? null : Number(pricing.total_price);
   const shipment = pricing.shipment_price == null || pricing.shipment_price === "" ? null : Number(pricing.shipment_price);
-  if (pricing.byoc_charges != null && pricing.byoc_charges !== "" && shipment != null) return shipment + (total || 0);
-  if (total != null && (total !== 0 || shipment == null)) return total;
-  if (shipment != null) return shipment;
-  if (pricing.total_amount != null && pricing.total_amount !== "") return Number(pricing.total_amount);
-  return null;
+  if (pricing.byoc_charges != null && pricing.byoc_charges !== "" && shipment != null) {
+    return { amount: shipment + (total || 0), source: "byoc.shipment_plus_total" };
+  }
+  if (total != null && (total !== 0 || shipment == null)) return { amount: total, source: "pricing.total_price" };
+  if (shipment != null) return { amount: shipment, source: "pricing.shipment_price" };
+  if (pricing.total_amount != null && pricing.total_amount !== "") {
+    return { amount: Number(pricing.total_amount), source: "pricing.total_amount" };
+  }
+  return { amount: null, source: null };
 }
 
 async function shipmentCost(listed, token, fetcher) {
@@ -185,11 +213,23 @@ async function shipmentCost(listed, token, fetcher) {
   const detailAwb = String(detail.shipment_details?.awb_number || "").trim();
   if (listedAwb && detailAwb && listedAwb !== detailAwb) throw new Error(`EasyParcel AWB identity mismatch for ${shipmentNumber}`);
   const pricing = detail.pricing && typeof detail.pricing === "object" ? detail.pricing : {};
-  const amount = detailMoneyValue(pricing);
+  const { amount, source } = detailMoneyValue(pricing);
   if (!Number.isFinite(amount) || amount < 0) throw new Error(`EasyParcel shipment ${shipmentNumber} had no valid final price`);
   const currency = String(pricing.currency_code || pricing.currency || detail.currency_code || "").trim();
   if (currency !== "MYR") throw new Error(`EasyParcel shipment ${shipmentNumber} was not denominated in MYR`);
-  return { shipmentNumber, awbNumber: detailAwb || listedAwb || null, costSen: Math.round(amount * 100) };
+  const components = priceComponents(pricing);
+  const costSen = Math.round(amount * 100);
+  const largestSen = Math.max(costSen, ...Object.values(components));
+  return {
+    shipmentNumber,
+    awbNumber: detailAwb || listedAwb || null,
+    costSen,
+    priceSource: source,
+    priceComponents: components,
+    // Flags a shipment where some returned component exceeds the chosen price,
+    // which is how an omitted surcharge shows up instead of staying hidden.
+    priceUnderChosen: largestSen > costSen ? largestSen - costSen : 0
+  };
 }
 
 export async function readEasyParcelDay(env, localDate, fetcher = fetch) {
@@ -214,6 +254,7 @@ export async function readEasyParcelDay(env, localDate, fetcher = fetch) {
     currency: "MYR",
     shipmentCount: shipments.length,
     courierCostSen: shipments.reduce((total, shipment) => total + shipment.costSen, 0),
+    priceReviewRequiredCount: shipments.filter((shipment) => shipment.priceUnderChosen > 0).length,
     shipments
   };
 }

@@ -111,3 +111,47 @@ test("fails closed on invalid dates and source mismatches", async () => {
     await assert.rejects(() => readEasyParcelDay(env, "2026-09-03", fetcher), expected);
   }
 });
+
+test("exposes every price component so a preview can be reconciled to the invoice", async () => {
+  const fetcher = async (url) => {
+    if (url.includes("/shipment/list")) {
+      return new Response(JSON.stringify({ status_code: "200", data: [{ shipment_number: "ES-1", awb: "AWB1" }], has_more: false }));
+    }
+    return new Response(JSON.stringify({ status_code: "200", data: {
+      shipment_number: "ES-1",
+      shipment_details: { awb_number: "AWB1" },
+      pricing: { total_price: "6.49", shipment_price: "6.29", addon_price: "0.20", currency_code: "MYR" }
+    } }));
+  };
+  const env = {
+    TIME_ZONE: "Asia/Kuala_Lumpur", EASYPARCEL_ACCOUNT_REGION: "Malaysia",
+    EASYPARCEL_TOKEN_VAULT: { idFromName: () => "id", get: () => ({ fetch: async () => Response.json({ accessToken: "t" }) }) }
+  };
+  const result = await readEasyParcelDay(env, "2026-09-06", fetcher);
+  const shipment = result.shipments[0];
+  assert.equal(shipment.priceSource, "pricing.total_price");
+  // Each component EasyParcel returned is preserved for reconciliation.
+  assert.equal(shipment.priceComponents.total_price, 649);
+  assert.equal(shipment.priceComponents.shipment_price, 629);
+  assert.equal(shipment.priceComponents.addon_price, 20);
+});
+
+test("flags a shipment whose chosen price is smaller than a returned component", async () => {
+  const fetcher = async (url) => {
+    if (url.includes("/shipment/list")) {
+      return new Response(JSON.stringify({ status_code: "200", data: [{ shipment_number: "ES-2", awb: "AWB2" }], has_more: false }));
+    }
+    return new Response(JSON.stringify({ status_code: "200", data: {
+      shipment_number: "ES-2",
+      shipment_details: { awb_number: "AWB2" },
+      pricing: { total_price: "6.49", total_amount: "6.69", currency_code: "MYR" }
+    } }));
+  };
+  const env = {
+    TIME_ZONE: "Asia/Kuala_Lumpur", EASYPARCEL_ACCOUNT_REGION: "Malaysia",
+    EASYPARCEL_TOKEN_VAULT: { idFromName: () => "id", get: () => ({ fetch: async () => Response.json({ accessToken: "t" }) }) }
+  };
+  const result = await readEasyParcelDay(env, "2026-09-06", fetcher);
+  assert.equal(result.shipments[0].priceUnderChosen, 20);
+  assert.equal(result.priceReviewRequiredCount, 1);
+});
