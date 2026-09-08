@@ -3,6 +3,8 @@ const DETAIL_API_BASE = "https://api.easyparcel.com/open_api/2026-03";
 const TOKEN_URL = "https://api.easyparcel.com/oauth/token";
 const TOKEN_OBJECT_NAME = "ohvenus-oauth";
 const TOKEN_KEY = "oauth";
+const DETAIL_CONCURRENCY = 5;
+export const MAX_SHIPMENTS_PER_DAY = 40;
 
 function requireValue(value, name) {
   const trimmed = String(value || "").trim();
@@ -195,7 +197,16 @@ export async function readEasyParcelDay(env, localDate, fetcher = fetch) {
   assertScope(env);
   const token = await accessToken(env);
   const listed = await listShipments(localDate, token, fetcher);
-  const shipments = await Promise.all(listed.map((item) => shipmentCost(item, token, fetcher)));
+  if (listed.length > MAX_SHIPMENTS_PER_DAY) {
+    throw new Error(`EasyParcel returned ${listed.length} shipments, above the ${MAX_SHIPMENTS_PER_DAY} subrequest budget`);
+  }
+  // Bounded concurrency keeps one day inside Cloudflare's per-invocation
+  // subrequest and connection limits.
+  const shipments = [];
+  for (let index = 0; index < listed.length; index += DETAIL_CONCURRENCY) {
+    const batch = listed.slice(index, index + DETAIL_CONCURRENCY);
+    shipments.push(...await Promise.all(batch.map((item) => shipmentCost(item, token, fetcher))));
+  }
   return {
     source: "easyparcel",
     localDate,

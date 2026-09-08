@@ -96,3 +96,9 @@ automations:
 # identity-verified EasyParcel detail costs in a balanced daily preview. It
 # recovers consecutive missed dates and suppresses completed dates, but has no
 # Zoho write path. Financial writes remain explicitly approval-gated.
+#
+# 2026-09-08: refunds are recognised on the refund's own processed date, not the
+# original order date, and reverse COGS for returned stock. Courier cost is
+# attributed per order by AWB where the Shopify fulfillment read scopes are
+# granted. Recovery drains at most 3 days per invocation to stay inside the
+# Cloudflare subrequest budget. Still preview_only with no Zoho write path.

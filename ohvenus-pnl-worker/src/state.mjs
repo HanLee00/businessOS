@@ -2,11 +2,15 @@ import { shiftDate } from "./shopify.mjs";
 
 const STATE_OBJECT_NAME = "ohvenus-daily-pnl";
 
-function dateRange(start, end, maxDays = 31) {
+// Each recovered day costs a Shopify order page, a Shopify refund page, a Meta
+// read and one EasyParcel call per shipment. Cloudflare caps subrequests per
+// invocation, so a backlog is drained a few days per run instead of all at once.
+export const MAX_DAYS_PER_RUN = 3;
+
+function dateRange(start, end, maxDays = MAX_DAYS_PER_RUN) {
   const dates = [];
-  for (let date = start; date <= end; date = shiftDate(date, 1)) {
+  for (let date = start; date <= end && dates.length < maxDays; date = shiftDate(date, 1)) {
     dates.push(date);
-    if (dates.length > maxDays) throw new Error(`Missed-day recovery exceeded ${maxDays} days`);
   }
   return dates;
 }
@@ -20,7 +24,12 @@ export class OhVenusPnlState {
       const { targetDate } = await request.json();
       const lastSuccessfulDate = await this.state.storage.get("lastSuccessfulDate");
       const startDate = lastSuccessfulDate ? shiftDate(lastSuccessfulDate, 1) : targetDate;
-      return Response.json({ dates: startDate <= targetDate ? dateRange(startDate, targetDate) : [] });
+      const dates = startDate <= targetDate ? dateRange(startDate, targetDate) : [];
+      let pending = 0;
+      if (dates.length) {
+        for (let date = shiftDate(dates.at(-1), 1); date <= targetDate; date = shiftDate(date, 1)) pending += 1;
+      }
+      return Response.json({ dates, pendingAfterRun: pending });
     }
     if (request.method === "POST" && url.pathname === "/record") {
       const run = await request.json();
@@ -53,7 +62,7 @@ async function post(env, path, body) {
   return result;
 }
 
-export async function recoveryDates(env, targetDate) { return (await post(env, "/dates", { targetDate })).dates; }
+export async function recoveryDates(env, targetDate) { return post(env, "/dates", { targetDate }); }
 
 export async function recordRun(env, result) {
   const fingerprintInput = JSON.stringify({

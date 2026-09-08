@@ -157,6 +157,43 @@ rotated refresh token in its secret store; it must not rely on a copied access t
 - Composio verified organization `933897042` as active Oh! Venus in MYR and
   `Asia/Kuala_Lumpur`, and found no journal for `OHV-PNL-2026-09-06`. No Zoho
   record was created or changed.
-- Remaining control: completed dates are not yet periodically reopened for late
-  Shopify refunds or other source adjustments. Add a bounded late-adjustment
-  rescan before any journal write.
+## Refund recognition (owner decision, 2026-09-08)
+
+- A refund is recognised on the **date the refund itself was processed**, never
+  on the date of the original order. `Order.refunds[].createdAt` in the shop's
+  local timezone selects the day; the order may be of any age.
+- Refunds are read through a separate `updated_at`-windowed query, so a refund
+  against an order placed weeks earlier still lands on the day the money left
+  the account.
+- A refund also reverses that order's COGS for the returned quantity
+  (`cogsReversalSen`), so stock returning to inventory is not counted as cost.
+- Consequence: a completed day never changes retroactively. Sales-side COGS uses
+  the original ordered quantity so a later refund cannot rewrite a past day.
+- A day whose refunds exceed its new sales legitimately reports negative net
+  revenue and a negative gateway clearing balance. Both are represented in the
+  journal as credits and still balance.
+
+## Per-order courier attribution
+
+- Each EasyParcel shipment-detail cost is matched to the Shopify order it
+  shipped, by AWB against the order's fulfillment tracking numbers.
+- This requires the Shopify app to hold the fulfillment read scopes. If they are
+  missing, the day still produces a complete and correct P&L with
+  `courierAttributionAvailable: false` and no per-order breakdown.
+- A shipment whose order was placed on an earlier day cannot match inside a
+  single day's order set. It is reported under `unattributed`, never dropped,
+  and its cost is still included in the day's courier total.
+
+## Runtime limits
+
+- Missed-day recovery drains at most `MAX_DAYS_PER_RUN` (3) days per invocation
+  and reports `pendingAfterRun`, so a backlog cannot exceed Cloudflare's
+  per-invocation subrequest budget. The daily cron drains the remainder.
+- EasyParcel shipment-detail reads run at concurrency 5 and fail closed above 40
+  shipments in a day rather than silently exceeding the subrequest limit.
+
+- Remaining control: completed dates are not yet periodically reopened for other
+  late source adjustments. Refund timing is now handled at source, but a bounded
+  late-adjustment rescan is still required before any journal write. Note that
+  re-running an old date relies on the order still falling inside the
+  `updated_at` window, so a very late correction can still be missed.

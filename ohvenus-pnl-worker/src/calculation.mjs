@@ -61,15 +61,18 @@ export function calculateDailyPnl(snapshot) {
   const refundsSen = nonNegative(revenue.refundsSen || 0, "refundsSen");
   const taxesSen = nonNegative(revenue.taxesSen || 0, "taxesSen");
   const cogsSen = nonNegative(snapshot.cogsSen || 0, "cogsSen");
+  const cogsReversalSen = nonNegative(snapshot.cogsReversalSen || 0, "cogsReversalSen");
   const courierSen = nonNegative(snapshot.courierSen || 0, "courierSen");
   const metaAdsSen = nonNegative(snapshot.metaAdsSen || 0, "metaAdsSen");
   const metaFeeSen = percent(metaAdsSen, 800);
   const packagingSen = percent(metaAdsSen, 200);
   const fees = paymentFees(snapshot.payments || []);
 
+  // Refunds are recognised on the refund date, so a day whose refunds exceed its
+  // new sales legitimately reports negative net revenue.
   const netRevenueSen = productSalesSen + shippingIncomeSen - discountsSen - refundsSen;
-  if (netRevenueSen < 0) throw new Error("Net revenue cannot be negative");
-  const grossProfitSen = netRevenueSen - cogsSen - packagingSen - courierSen;
+  const netCogsSen = cogsSen - cogsReversalSen;
+  const grossProfitSen = netRevenueSen - netCogsSen - packagingSen - courierSen;
   const operatingExpensesSen = fees.stripe + fees.billplz + metaAdsSen + metaFeeSen;
   const netProfitSen = grossProfitSen - operatingExpensesSen;
 
@@ -78,7 +81,7 @@ export function calculateDailyPnl(snapshot) {
     localDate: snapshot.localDate,
     reference: `OHV-PNL-${snapshot.localDate}`,
     revenue: { productSalesSen, shippingIncomeSen, discountsSen, refundsSen, netRevenueSen },
-    directCosts: { cogsSen, packagingSen, courierSen },
+    directCosts: { cogsSen, cogsReversalSen, netCogsSen, packagingSen, courierSen },
     operatingExpenses: {
       stripeFeesSen: fees.stripe,
       billplzFeesSen: fees.billplz,
@@ -96,7 +99,8 @@ export function buildJournalPreview(snapshot, clearingByGatewaySen) {
   const pnl = calculateDailyPnl(snapshot);
   const lines = new Map();
   const clearing = clearingByGatewaySen || {};
-  const clearingTotal = sum(Object.values(clearing).map((v) => nonNegative(v, "clearing")));
+  // A gateway balance can be negative on a day whose refunds exceed its sales.
+  const clearingTotal = sum(Object.values(clearing).map((v) => integer(v, "clearing")));
   const expectedClearing = pnl.revenue.netRevenueSen + pnl.taxesSen
     - pnl.operatingExpenses.stripeFeesSen - pnl.operatingExpenses.billplzFeesSen;
   if (clearingTotal !== expectedClearing) {
@@ -104,7 +108,9 @@ export function buildJournalPreview(snapshot, clearingByGatewaySen) {
   }
 
   for (const [gateway, amount] of Object.entries(clearing)) {
-    addLine(lines, `${gateway.toLowerCase()}_clearing`, amount, 0);
+    const key = `${gateway.toLowerCase()}_clearing`;
+    if (amount >= 0) addLine(lines, key, amount, 0);
+    else addLine(lines, key, 0, -amount);
   }
   addLine(lines, "discount", pnl.revenue.discountsSen, 0);
   addLine(lines, "refunds", pnl.revenue.refundsSen, 0);
@@ -114,8 +120,8 @@ export function buildJournalPreview(snapshot, clearingByGatewaySen) {
   addLine(lines, "shipping_income", 0, pnl.revenue.shippingIncomeSen);
   addLine(lines, "tax_payable", 0, pnl.taxesSen);
 
-  addLine(lines, "cogs", pnl.directCosts.cogsSen, 0);
-  addLine(lines, "inventory_asset", 0, pnl.directCosts.cogsSen);
+  addLine(lines, "cogs", pnl.directCosts.cogsSen, pnl.directCosts.cogsReversalSen);
+  addLine(lines, "inventory_asset", pnl.directCosts.cogsReversalSen, pnl.directCosts.cogsSen);
   addLine(lines, "meta_ads", pnl.operatingExpenses.metaAdsSen, 0);
   addLine(lines, "meta_platform_fees", pnl.operatingExpenses.metaPlatformFeesSen, 0);
   addLine(lines, "meta_payable", 0, pnl.operatingExpenses.metaAdsSen + pnl.operatingExpenses.metaPlatformFeesSen);

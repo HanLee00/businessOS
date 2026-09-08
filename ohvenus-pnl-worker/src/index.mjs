@@ -7,6 +7,37 @@ import { recoveryDates, recordRun } from "./state.mjs";
 export { EasyParcelTokenVault } from "./easyparcel.mjs";
 export { OhVenusPnlState } from "./state.mjs";
 
+// Links each EasyParcel shipment cost to the Shopify order it shipped, by AWB.
+// A shipment whose order was placed on an earlier day cannot match inside a
+// single day's order set, so it is reported as unmatched rather than hidden.
+export function matchCourierCostsToOrders(shopify, easyparcel) {
+  const orderByAwb = new Map();
+  for (const order of shopify.orders || []) {
+    for (const tracking of order.trackingNumbers || []) orderByAwb.set(tracking, order);
+  }
+  const matched = [];
+  const unmatched = [];
+  for (const shipment of easyparcel.shipments) {
+    const order = shipment.awbNumber ? orderByAwb.get(shipment.awbNumber) : null;
+    const entry = {
+      shipmentNumber: shipment.shipmentNumber,
+      awbNumber: shipment.awbNumber,
+      courierCostSen: shipment.costSen,
+      orderId: order?.orderId || null,
+      orderName: order?.orderName || null
+    };
+    (order ? matched : unmatched).push(entry);
+  }
+  return {
+    matchedCount: matched.length,
+    unmatchedCount: unmatched.length,
+    matchedCourierCostSen: matched.reduce((sum, entry) => sum + entry.courierCostSen, 0),
+    unmatchedCourierCostSen: unmatched.reduce((sum, entry) => sum + entry.courierCostSen, 0),
+    perOrder: matched,
+    unattributed: unmatched
+  };
+}
+
 async function dailyPreview(env, localDate) {
   const [shopify, meta, easyparcel] = await Promise.all([
     readShopifyDay(env, localDate),
@@ -18,6 +49,7 @@ async function dailyPreview(env, localDate) {
     localDate,
     revenue: shopify.revenue,
     cogsSen: shopify.cogsSen,
+    cogsReversalSen: shopify.cogsReversalSen,
     courierSen: easyparcel.courierCostSen,
     metaAdsSen: meta.spendSen,
     payments: shopify.payments
@@ -34,6 +66,7 @@ async function dailyPreview(env, localDate) {
     mode: env.MODE,
     organizationId: env.ZOHO_ORGANIZATION_ID,
     sources: { shopify, meta, easyparcel },
+    courierAttribution: matchCourierCostsToOrders(shopify, easyparcel),
     preview: resolveAccountIds(calculated),
     writeAttempted: false
   };
@@ -41,7 +74,8 @@ async function dailyPreview(env, localDate) {
 
 async function runRecovery(env, targetDate) {
   const results = [];
-  for (const localDate of await recoveryDates(env, targetDate)) {
+  const { dates, pendingAfterRun } = await recoveryDates(env, targetDate);
+  for (const localDate of dates) {
     const result = await dailyPreview(env, localDate);
     const state = await recordRun(env, result);
     results.push({
@@ -52,10 +86,15 @@ async function runRecovery(env, targetDate) {
       metaAdsSpendSen: result.sources.meta.spendSen,
       easyParcelShipmentCount: result.sources.easyparcel.shipmentCount,
       easyParcelCourierCostSen: result.sources.easyparcel.courierCostSen,
+      shopifyRefundCount: result.sources.shopify.refundCount,
+      shopifyRefundsSen: result.sources.shopify.revenue.refundsSen,
       debitsSen: result.preview.debitsSen,
       creditsSen: result.preview.creditsSen,
+      courierMatchedCount: result.courierAttribution.matchedCount,
+      courierUnmatchedCount: result.courierAttribution.unmatchedCount,
       duplicate: state.duplicate,
       changed: state.changed,
+      pendingAfterRun,
       writeAttempted: false
     });
   }

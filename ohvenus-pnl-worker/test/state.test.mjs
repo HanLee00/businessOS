@@ -27,3 +27,26 @@ test("uses one deterministic record and reports duplicate or changed reruns", as
   const invalid = await request(object, "/record", { ...run, reference: "wrong" });
   assert.equal(invalid.status, 400);
 });
+
+test("drains a long backlog a few days per run and reports what is left", async () => {
+  const object = new OhVenusPnlState(state());
+  await request(object, "/record", { localDate: "2026-09-01", reference: "OHV-PNL-2026-09-01", fingerprint: "a" });
+  const body = await (await request(object, "/dates", { targetDate: "2026-09-10" })).json();
+  assert.deepEqual(body.dates, ["2026-09-02", "2026-09-03", "2026-09-04"]);
+  assert.equal(body.pendingAfterRun, 6);
+
+  for (const localDate of body.dates) {
+    await request(object, "/record", { localDate, reference: `OHV-PNL-${localDate}`, fingerprint: "a" });
+  }
+  const next = await (await request(object, "/dates", { targetDate: "2026-09-10" })).json();
+  assert.deepEqual(next.dates, ["2026-09-05", "2026-09-06", "2026-09-07"]);
+  assert.equal(next.pendingAfterRun, 3);
+});
+
+test("reports no work and no backlog once caught up", async () => {
+  const object = new OhVenusPnlState(state());
+  await request(object, "/record", { localDate: "2026-09-06", reference: "OHV-PNL-2026-09-06", fingerprint: "a" });
+  const body = await (await request(object, "/dates", { targetDate: "2026-09-06" })).json();
+  assert.deepEqual(body.dates, []);
+  assert.equal(body.pendingAfterRun, 0);
+});
