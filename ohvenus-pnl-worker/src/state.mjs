@@ -6,6 +6,11 @@ const STATE_OBJECT_NAME = "ohvenus-daily-pnl";
 // read and one EasyParcel call per shipment. Cloudflare caps subrequests per
 // invocation, so a backlog is drained a few days per run instead of all at once.
 export const MAX_DAYS_PER_RUN = 3;
+// Completed days are revisited so a late refund, a corrected order, or an AWB
+// bought after the day was first calculated is surfaced. Rotating oldest-first
+// covers the whole window every few runs without blowing the subrequest budget.
+export const RESCAN_WINDOW_DAYS = 7;
+export const RESCAN_DAYS_PER_RUN = 2;
 
 function dateRange(start, end, maxDays = MAX_DAYS_PER_RUN) {
   const dates = [];
@@ -31,13 +36,35 @@ export class OhVenusPnlState {
       }
       return Response.json({ dates, pendingAfterRun: pending });
     }
+    if (request.method === "POST" && url.pathname === "/rescan-dates") {
+      const { targetDate, exclude = [] } = await request.json();
+      const skip = new Set(exclude);
+      const candidates = [];
+      for (let offset = 1; offset <= RESCAN_WINDOW_DAYS; offset += 1) {
+        const date = shiftDate(targetDate, -offset);
+        if (skip.has(date)) continue;
+        const run = await this.state.storage.get(`run:${date}`);
+        if (!run) continue;
+        candidates.push({ date, rescannedAt: run.rescannedAt || "" });
+      }
+      // Never rescanned first, then least recently rescanned.
+      candidates.sort((a, b) => (a.rescannedAt || "").localeCompare(b.rescannedAt || "") || a.date.localeCompare(b.date));
+      return Response.json({
+        dates: candidates.slice(0, RESCAN_DAYS_PER_RUN).map((entry) => entry.date),
+        windowSize: candidates.length
+      });
+    }
     if (request.method === "POST" && url.pathname === "/record") {
       const run = await request.json();
       const expectedReference = `OHV-PNL-${run.localDate}`;
       if (run.reference !== expectedReference) return Response.json({ error: "deterministic reference mismatch" }, { status: 400 });
       const key = `run:${run.localDate}`;
       const existing = await this.state.storage.get(key);
-      await this.state.storage.put(key, run);
+      await this.state.storage.put(key, {
+        ...run,
+        firstSeenAt: existing?.firstSeenAt || run.checkedAt,
+        rescannedAt: run.rescannedAt || existing?.rescannedAt
+      });
       const lastSuccessfulDate = await this.state.storage.get("lastSuccessfulDate");
       if (!lastSuccessfulDate || run.localDate > lastSuccessfulDate) await this.state.storage.put("lastSuccessfulDate", run.localDate);
       return Response.json({ duplicate: existing?.fingerprint === run.fingerprint, changed: Boolean(existing && existing.fingerprint !== run.fingerprint) });
@@ -64,7 +91,11 @@ async function post(env, path, body) {
 
 export async function recoveryDates(env, targetDate) { return post(env, "/dates", { targetDate }); }
 
-export async function recordRun(env, result) {
+export async function rescanDates(env, targetDate, exclude) {
+  return post(env, "/rescan-dates", { targetDate, exclude });
+}
+
+export async function recordRun(env, result, { rescan = false } = {}) {
   const fingerprintInput = JSON.stringify({
     reference: result.reference,
     shopify: result.sources.shopify,
@@ -79,6 +110,7 @@ export async function recordRun(env, result) {
     reference: result.reference,
     fingerprint,
     checkedAt: new Date().toISOString(),
+    rescannedAt: rescan ? new Date().toISOString() : undefined,
     writeAttempted: false
   });
 }

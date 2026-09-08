@@ -50,3 +50,47 @@ test("reports no work and no backlog once caught up", async () => {
   assert.deepEqual(body.dates, []);
   assert.equal(body.pendingAfterRun, 0);
 });
+
+test("rotates rescans oldest-first across the window", async () => {
+  const object = new OhVenusPnlState(state());
+  for (const d of ["2026-09-01","2026-09-02","2026-09-03","2026-09-04"]) {
+    await request(object, "/record", { localDate: d, reference: `OHV-PNL-${d}`, fingerprint: "a", checkedAt: "2026-09-05T04:00:00Z" });
+  }
+  // Never-rescanned days come first, oldest first.
+  const first = await (await request(object, "/rescan-dates", { targetDate: "2026-09-05" })).json();
+  assert.deepEqual(first.dates, ["2026-09-01","2026-09-02"]);
+  assert.equal(first.windowSize, 4);
+
+  for (const d of first.dates) {
+    await request(object, "/record", { localDate: d, reference: `OHV-PNL-${d}`, fingerprint: "a", checkedAt: "x", rescannedAt: "2026-09-05T05:00:00Z" });
+  }
+  // Next run moves on to the days not yet revisited.
+  const second = await (await request(object, "/rescan-dates", { targetDate: "2026-09-05" })).json();
+  assert.deepEqual(second.dates, ["2026-09-03","2026-09-04"]);
+});
+
+test("never rescans a date being calculated fresh in the same run", async () => {
+  const object = new OhVenusPnlState(state());
+  await request(object, "/record", { localDate: "2026-09-04", reference: "OHV-PNL-2026-09-04", fingerprint: "a" });
+  const body = await (await request(object, "/rescan-dates", { targetDate: "2026-09-05", exclude: ["2026-09-04"] })).json();
+  assert.deepEqual(body.dates, []);
+});
+
+test("detects a late courier cost arriving after the day was first calculated", async () => {
+  const object = new OhVenusPnlState(state());
+  const base = { localDate: "2026-09-06", reference: "OHV-PNL-2026-09-06" };
+  // First run: the AWB had not been bought yet.
+  await request(object, "/record", { ...base, fingerprint: "no-courier", checkedAt: "2026-09-07T04:00:00Z" });
+  // Rescan once the shipment exists.
+  const res = await (await request(object, "/record", { ...base, fingerprint: "with-courier", checkedAt: "2026-09-09T04:00:00Z", rescannedAt: "2026-09-09T04:00:00Z" })).json();
+  assert.deepEqual(res, { duplicate: false, changed: true });
+});
+
+test("keeps the original first-seen time and the latest rescan time", async () => {
+  const object = new OhVenusPnlState(state());
+  const base = { localDate: "2026-09-06", reference: "OHV-PNL-2026-09-06", fingerprint: "a" };
+  await request(object, "/record", { ...base, checkedAt: "2026-09-07T04:00:00Z" });
+  await request(object, "/record", { ...base, checkedAt: "2026-09-09T04:00:00Z", rescannedAt: "2026-09-09T04:00:00Z" });
+  const again = await (await request(object, "/rescan-dates", { targetDate: "2026-09-10" })).json();
+  assert.deepEqual(again.dates, ["2026-09-06"]);
+});

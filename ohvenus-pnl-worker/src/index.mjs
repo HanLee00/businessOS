@@ -2,8 +2,8 @@ import { buildJournalPreview } from "./calculation.mjs";
 import { resolveAccountIds } from "./accounts.mjs";
 import { previousLocalDate, readShopifyDay, readShopifyIdentity } from "./shopify.mjs";
 import { readMetaAdsDay } from "./meta.mjs";
-import { readEasyParcelDay } from "./easyparcel.mjs";
-import { recoveryDates, recordRun } from "./state.mjs";
+import { readEasyParcelDay, createShipmentCache } from "./easyparcel.mjs";
+import { recoveryDates, rescanDates, recordRun } from "./state.mjs";
 export { EasyParcelTokenVault } from "./easyparcel.mjs";
 export { OhVenusPnlState } from "./state.mjs";
 
@@ -67,14 +67,14 @@ export function matchCourierCostsToOrders(shopify, easyparcel) {
   };
 }
 
-async function dailyPreview(env, localDate) {
+async function dailyPreview(env, localDate, cache = null) {
   // EasyParcel is keyed off this day's order names, so Shopify is read first.
   const [shopify, meta] = await Promise.all([
     readShopifyDay(env, localDate),
     readMetaAdsDay(env, localDate)
   ]);
   const orderReferences = (shopify.orders || []).map((order) => order.orderName);
-  const easyparcel = await readEasyParcelDay(env, localDate, orderReferences);
+  const easyparcel = await readEasyParcelDay(env, localDate, orderReferences, fetch, cache);
   const snapshot = {
     currency: "MYR",
     localDate,
@@ -103,35 +103,51 @@ async function dailyPreview(env, localDate) {
   };
 }
 
+function summarize(localDate, result, state, mode) {
+  return {
+    localDate,
+    mode,
+    reference: result.reference,
+    shopifyOrderCount: result.sources.shopify.orderCount,
+    shopifyGrossCollectedSen: result.sources.shopify.grossCollectedSen,
+    metaAdsSpendSen: result.sources.meta.spendSen,
+    easyParcelShipmentCount: result.sources.easyparcel.shipmentCount,
+    easyParcelCourierCostSen: result.sources.easyparcel.courierCostSen,
+    ordersWithoutShipment: result.sources.easyparcel.ordersWithoutShipment,
+    shopifyRefundCount: result.sources.shopify.refundCount,
+    shopifyRefundsSen: result.sources.shopify.revenue.refundsSen,
+    courierMatchedCount: result.courierAttribution.matchedCount,
+    courierAttributedCount: result.courierAttribution.attributedCount,
+    courierUnmatchedCount: result.courierAttribution.unmatchedCount,
+    debitsSen: result.preview.debitsSen,
+    creditsSen: result.preview.creditsSen,
+    netProfitSen: result.preview.netProfitSen,
+    duplicate: state.duplicate,
+    changed: state.changed,
+    writeAttempted: false
+  };
+}
+
 async function runRecovery(env, targetDate) {
+  const cache = createShipmentCache();
   const results = [];
   const { dates, pendingAfterRun } = await recoveryDates(env, targetDate);
   for (const localDate of dates) {
-    const result = await dailyPreview(env, localDate);
+    const result = await dailyPreview(env, localDate, cache);
     const state = await recordRun(env, result);
-    results.push({
-      localDate,
-      reference: result.reference,
-      shopifyOrderCount: result.sources.shopify.orderCount,
-      shopifyGrossCollectedSen: result.sources.shopify.grossCollectedSen,
-      metaAdsSpendSen: result.sources.meta.spendSen,
-      easyParcelShipmentCount: result.sources.easyparcel.shipmentCount,
-      easyParcelCourierCostSen: result.sources.easyparcel.courierCostSen,
-      ordersWithoutShipment: result.sources.easyparcel.ordersWithoutShipment,
-      shopifyRefundCount: result.sources.shopify.refundCount,
-      shopifyRefundsSen: result.sources.shopify.revenue.refundsSen,
-      debitsSen: result.preview.debitsSen,
-      creditsSen: result.preview.creditsSen,
-      courierMatchedCount: result.courierAttribution.matchedCount,
-      courierAttributedCount: result.courierAttribution.attributedCount,
-      courierUnmatchedCount: result.courierAttribution.unmatchedCount,
-      duplicate: state.duplicate,
-      changed: state.changed,
-      pendingAfterRun,
-      writeAttempted: false
-    });
+    results.push({ ...summarize(localDate, result, state, "new"), pendingAfterRun });
   }
-  return results;
+
+  // Revisit completed days so a late refund, a corrected order, or an AWB bought
+  // after the day was first calculated is surfaced instead of going unnoticed.
+  const rescans = [];
+  const { dates: toRescan, windowSize } = await rescanDates(env, targetDate, dates);
+  for (const localDate of toRescan) {
+    const result = await dailyPreview(env, localDate, cache);
+    const state = await recordRun(env, result, { rescan: true });
+    rescans.push({ ...summarize(localDate, result, state, "rescan"), rescanWindowSize: windowSize });
+  }
+  return { results, rescans, changedDates: rescans.filter((r) => r.changed).map((r) => r.localDate) };
 }
 
 function json(body, status = 200) {
@@ -224,7 +240,8 @@ export default {
         if (env.ZOHO_ORGANIZATION_ID !== "933897042") throw new Error("Zoho organization did not match Oh! Venus");
         const input = await request.json().catch(() => ({}));
         const targetDate = input.targetDate || previousLocalDate(Date.now(), env.TIME_ZONE);
-        return json({ ok: true, results: await runRecovery(env, targetDate) });
+        const recovery = await runRecovery(env, targetDate);
+        return json({ ok: true, ...recovery });
       } catch (error) {
         return json({ ok: false, error: error instanceof Error ? error.message : "preview recovery failed" }, 400);
       }
@@ -238,12 +255,22 @@ export default {
     }
     const targetDate = previousLocalDate(controller.scheduledTime || Date.now(), env.TIME_ZONE);
     if (env.ZOHO_ORGANIZATION_ID !== "933897042") throw new Error("Zoho organization did not match Oh! Venus");
-    for (const summary of await runRecovery(env, targetDate)) {
+    const { results, rescans, changedDates } = await runRecovery(env, targetDate);
+    for (const summary of [...results, ...rescans]) {
       console.log(JSON.stringify({
         event: "ohvenus_pnl_preview_completed",
         mode: env.MODE,
         organizationId: env.ZOHO_ORGANIZATION_ID,
         ...summary,
+        writeAttempted: false
+      }));
+    }
+    if (changedDates.length) {
+      console.log(JSON.stringify({
+        event: "ohvenus_pnl_late_adjustment_detected",
+        mode: env.MODE,
+        organizationId: env.ZOHO_ORGANIZATION_ID,
+        changedDates,
         writeAttempted: false
       }));
     }

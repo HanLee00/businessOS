@@ -228,10 +228,26 @@ rotated refresh token in its secret store; it must not rely on a copied access t
 - The shipment list is scanned from one day before to `COLLECTION_LOOKAHEAD_DAYS`
   (7) after the target day, so a parcel collected days later is still found and
   still booked to its order's day.
-- Known gap: an order whose shipment is not booked by the time the day is
-  calculated reports under `ordersWithoutShipment` and its courier cost appears
-  only on a later rescan. This is the courier form of the late-adjustment
-  control and must be resolved before any journal write.
+- An order whose shipment is not booked by the time the day is calculated
+  reports under `ordersWithoutShipment`. The rolling rescan below picks it up
+  once the AWB exists.
+
+## Rolling late-adjustment rescan (added 2026-09-08)
+
+- Every invocation revisits completed days as well as calculating new ones:
+  `RESCAN_DAYS_PER_RUN` (2) days drawn from the last `RESCAN_WINDOW_DAYS` (7),
+  never-rescanned first and then least recently rescanned, so the whole window
+  is covered every few runs.
+- A day whose fingerprint differs from its stored record is reported as
+  `changed`, and the run emits `ohvenus_pnl_late_adjustment_detected` listing
+  the changed dates. This covers a late refund, a corrected order, and an AWB
+  bought after the day was first calculated.
+- Shipment details are cached per invocation, so a shipment appearing in several
+  days' scan windows is fetched once and a multi-day run stays inside the
+  Cloudflare subrequest budget.
+- A source failure throws before anything is recorded, so `lastSuccessfulDate`
+  does not advance and the next run retries the day. A transient Meta Graph
+  error was observed and cleared on retry during verification.
 
 ## Per-order courier attribution
 

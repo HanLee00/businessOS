@@ -300,7 +300,11 @@ export function normalizeReference(value) {
   return raw || null;
 }
 
-export async function readEasyParcelDay(env, localDate, orderReferences = [], fetcher = fetch) {
+// One shipment can appear in several days' scan windows. Detailing it once per
+// invocation keeps a multi-day run inside the Cloudflare subrequest budget.
+export function createShipmentCache() { return new Map(); }
+
+export async function readEasyParcelDay(env, localDate, orderReferences = [], fetcher = fetch, cache = null) {
   assertLocalDate(localDate);
   assertScope(env);
   const timeZone = env.TIME_ZONE;
@@ -312,9 +316,18 @@ export async function readEasyParcelDay(env, localDate, orderReferences = [], fe
   // Bounded concurrency keeps one day inside Cloudflare's per-invocation
   // subrequest and connection limits.
   const shipments = [];
-  for (let index = 0; index < listed.length; index += DETAIL_CONCURRENCY) {
-    const batch = listed.slice(index, index + DETAIL_CONCURRENCY);
-    shipments.push(...await Promise.all(batch.map((item) => shipmentCost(env, item, token, fetcher, timeZone))));
+  const pending = listed.filter((item) => {
+    const key = String(item.shipment_number || "").trim();
+    if (cache && cache.has(key)) { shipments.push(cache.get(key)); return false; }
+    return true;
+  });
+  for (let index = 0; index < pending.length; index += DETAIL_CONCURRENCY) {
+    const batch = pending.slice(index, index + DETAIL_CONCURRENCY);
+    const priced = await Promise.all(batch.map((item) => shipmentCost(env, item, token, fetcher, timeZone)));
+    for (const shipment of priced) {
+      if (cache) cache.set(shipment.shipmentNumber, shipment);
+      shipments.push(shipment);
+    }
   }
   // Courier cost belongs to the day its order was placed, because the AWB is
   // bought then. The scanned window covers later collection dates, so keep only

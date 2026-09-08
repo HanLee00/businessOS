@@ -102,3 +102,9 @@ automations:
 # attributed per order by AWB where the Shopify fulfillment read scopes are
 # granted. Recovery drains at most 3 days per invocation to stay inside the
 # Cloudflare subrequest budget. Still preview_only with no Zoho write path.
+#
+# 2026-09-08 (later): courier cost is recognised on the order's date via the
+# EasyParcel reference, not the scheduled collection date. Every run also
+# rescans two of the last seven completed days and reports changed dates, which
+# closes the late-adjustment control for refunds, corrected orders, and AWBs
+# bought after a day was first calculated.
