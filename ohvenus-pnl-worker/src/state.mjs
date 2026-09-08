@@ -36,6 +36,19 @@ export class OhVenusPnlState {
       }
       return Response.json({ dates, pendingAfterRun: pending });
     }
+    if (request.method === "GET" && url.pathname === "/runs") {
+      const limit = Math.min(Number(url.searchParams.get("limit")) || 31, 100);
+      const stored = await this.state.storage.list({ prefix: "run:" });
+      const runs = [...stored.values()]
+        .filter((run) => run && run.localDate)
+        .sort((a, b) => b.localDate.localeCompare(a.localDate))
+        .slice(0, limit);
+      return Response.json({
+        count: runs.length,
+        lastSuccessfulDate: (await this.state.storage.get("lastSuccessfulDate")) || null,
+        runs
+      });
+    }
     if (request.method === "POST" && url.pathname === "/rescan-dates") {
       const { targetDate, exclude = [] } = await request.json();
       const skip = new Set(exclude);
@@ -60,6 +73,9 @@ export class OhVenusPnlState {
       if (run.reference !== expectedReference) return Response.json({ error: "deterministic reference mismatch" }, { status: 400 });
       const key = `run:${run.localDate}`;
       const existing = await this.state.storage.get(key);
+      if (run.summary && typeof run.summary !== "object") {
+        return Response.json({ error: "run summary must be an object" }, { status: 400 });
+      }
       await this.state.storage.put(key, {
         ...run,
         firstSeenAt: existing?.firstSeenAt || run.checkedAt,
@@ -91,11 +107,18 @@ async function post(env, path, body) {
 
 export async function recoveryDates(env, targetDate) { return post(env, "/dates", { targetDate }); }
 
+export async function listRuns(env, limit) {
+  const response = await stub(env).fetch(`https://pnl-state/runs?limit=${encodeURIComponent(limit || 31)}`);
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error || "P&L run history failed");
+  return result;
+}
+
 export async function rescanDates(env, targetDate, exclude) {
   return post(env, "/rescan-dates", { targetDate, exclude });
 }
 
-export async function recordRun(env, result, { rescan = false } = {}) {
+export async function recordRun(env, result, { rescan = false, summary = null } = {}) {
   const fingerprintInput = JSON.stringify({
     reference: result.reference,
     shopify: result.sources.shopify,
@@ -111,6 +134,7 @@ export async function recordRun(env, result, { rescan = false } = {}) {
     fingerprint,
     checkedAt: new Date().toISOString(),
     rescannedAt: rescan ? new Date().toISOString() : undefined,
+    summary,
     writeAttempted: false
   });
 }

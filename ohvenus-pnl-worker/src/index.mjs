@@ -3,7 +3,7 @@ import { resolveAccountIds } from "./accounts.mjs";
 import { previousLocalDate, readShopifyDay, readShopifyIdentity } from "./shopify.mjs";
 import { readMetaAdsDay } from "./meta.mjs";
 import { readEasyParcelDay, createShipmentCache } from "./easyparcel.mjs";
-import { recoveryDates, rescanDates, recordRun } from "./state.mjs";
+import { recoveryDates, rescanDates, recordRun, listRuns, MAX_DAYS_PER_RUN } from "./state.mjs";
 export { EasyParcelTokenVault } from "./easyparcel.mjs";
 export { OhVenusPnlState } from "./state.mjs";
 
@@ -128,13 +128,18 @@ function summarize(localDate, result, state, mode) {
   };
 }
 
-async function runRecovery(env, targetDate) {
+async function runRecovery(env, targetDate, backfillDates = null) {
   const cache = createShipmentCache();
   const results = [];
-  const { dates, pendingAfterRun } = await recoveryDates(env, targetDate);
+  // An explicit list records specific earlier days that recovery, which only
+  // moves forward from the last successful date, would never revisit.
+  const { dates, pendingAfterRun } = backfillDates
+    ? { dates: backfillDates.slice(0, MAX_DAYS_PER_RUN), pendingAfterRun: Math.max(backfillDates.length - MAX_DAYS_PER_RUN, 0) }
+    : await recoveryDates(env, targetDate);
   for (const localDate of dates) {
     const result = await dailyPreview(env, localDate, cache);
-    const state = await recordRun(env, result);
+    const summary = summarize(localDate, result, { duplicate: false, changed: false }, "new");
+    const state = await recordRun(env, result, { summary });
     results.push({ ...summarize(localDate, result, state, "new"), pendingAfterRun });
   }
 
@@ -144,7 +149,8 @@ async function runRecovery(env, targetDate) {
   const { dates: toRescan, windowSize } = await rescanDates(env, targetDate, dates);
   for (const localDate of toRescan) {
     const result = await dailyPreview(env, localDate, cache);
-    const state = await recordRun(env, result, { rescan: true });
+    const summary = summarize(localDate, result, { duplicate: false, changed: false }, "rescan");
+    const state = await recordRun(env, result, { rescan: true, summary });
     rescans.push({ ...summarize(localDate, result, state, "rescan"), rescanWindowSize: windowSize });
   }
   return { results, rescans, changedDates: rescans.filter((r) => r.changed).map((r) => r.localDate) };
@@ -168,6 +174,15 @@ export default {
     const url = new URL(request.url);
     if (request.method === "GET" && url.pathname === "/health") {
       return json({ ok: true, mode: env.MODE, organizationId: env.ZOHO_ORGANIZATION_ID });
+    }
+    if (request.method === "GET" && url.pathname === "/runs") {
+      if (!authorized(request, env)) return json({ ok: false, error: "unauthorized" }, 401);
+      try {
+        const limit = Number(url.searchParams.get("limit")) || 31;
+        return json({ ok: true, ...await listRuns(env, limit) });
+      } catch (error) {
+        return json({ ok: false, error: error instanceof Error ? error.message : "run history failed" }, 400);
+      }
     }
     if (request.method === "POST" && url.pathname === "/preview") {
       if (!authorized(request, env)) return json({ ok: false, error: "unauthorized" }, 401);
@@ -240,7 +255,14 @@ export default {
         if (env.ZOHO_ORGANIZATION_ID !== "933897042") throw new Error("Zoho organization did not match Oh! Venus");
         const input = await request.json().catch(() => ({}));
         const targetDate = input.targetDate || previousLocalDate(Date.now(), env.TIME_ZONE);
-        const recovery = await runRecovery(env, targetDate);
+        const backfill = Array.isArray(input.backfillDates) && input.backfillDates.length ? input.backfillDates : null;
+        if (backfill) {
+          for (const date of backfill) {
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("backfillDates must be ISO local dates");
+            if (date >= previousLocalDate(Date.now(), env.TIME_ZONE) + "\uffff") throw new Error("cannot backfill a future date");
+          }
+        }
+        const recovery = await runRecovery(env, targetDate, backfill);
         return json({ ok: true, ...recovery });
       } catch (error) {
         return json({ ok: false, error: error instanceof Error ? error.message : "preview recovery failed" }, 400);

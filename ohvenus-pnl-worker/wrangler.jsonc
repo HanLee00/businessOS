@@ -5,6 +5,11 @@
   "compatibility_date": "2026-09-02",
   "workers_dev": true,
   "preview_urls": false,
+  // Retains each run's log line so a daily result can be read back later.
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
   "triggers": {
     "crons": ["0 4 * * *"]
   },
