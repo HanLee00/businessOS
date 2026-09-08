@@ -155,3 +155,64 @@ test("flags a shipment whose chosen price is smaller than a returned component",
   assert.equal(result.shipments[0].priceUnderChosen, 20);
   assert.equal(result.priceReviewRequiredCount, 1);
 });
+
+const vaultEnv = (extra = {}) => ({
+  TIME_ZONE: "Asia/Kuala_Lumpur", EASYPARCEL_ACCOUNT_REGION: "Malaysia",
+  EASYPARCEL_TOKEN_VAULT: { idFromName: () => "id", get: () => ({ fetch: async () => Response.json({ accessToken: "t" }) }) },
+  ...extra
+});
+
+// Reproduces the real ES-2608-MGPMS payload for Shopify order #1178.
+const maskedFetcher = async (url) => {
+  if (url.includes("/shipment/list")) {
+    return new Response(JSON.stringify({ status_code: "200", data: [{ shipment_number: "ES-2608-MGPMS", awb: "7328089358633416" }], has_more: false }));
+  }
+  return new Response(JSON.stringify({ status_code: "200", data: {
+    shipment_number: "ES-2608-MGPMS",
+    shipment_details: { awb_number: "7328089358633416" },
+    pricing: { shipment_price: "6.12", tax_price: "0.37", total_price: "6.49", insurance: null, sms_notification: null, currency_code: "MYR" }
+  } }));
+};
+
+test("adds the account addon the detail API omits, matching the RM6.69 invoice", async () => {
+  const env = vaultEnv({ EASYPARCEL_ADDON_PER_SHIPMENT_SEN: "20" });
+  const result = await readEasyParcelDay(env, "2026-09-01", maskedFetcher);
+  const shipment = result.shipments[0];
+  assert.equal(shipment.apiCostSen, 649);
+  assert.equal(shipment.addonSen, 20);
+  assert.equal(shipment.costSen, 669);
+  assert.equal(result.courierCostSen, 669);
+  assert.equal(result.apiCourierCostSen, 649);
+  assert.equal(result.addonCourierCostSen, 20);
+});
+
+test("applies no addon when masking is switched off", async () => {
+  const result = await readEasyParcelDay(vaultEnv(), "2026-09-01", maskedFetcher);
+  assert.equal(result.courierCostSen, 649);
+  assert.equal(result.addonCourierCostSen, 0);
+});
+
+test("rejects a malformed addon setting instead of guessing", async () => {
+  const env = vaultEnv({ EASYPARCEL_ADDON_PER_SHIPMENT_SEN: "0.20" });
+  await assert.rejects(() => readEasyParcelDay(env, "2026-09-01", maskedFetcher), /whole number of sen/);
+});
+
+test("recovers when another client rotated the stored refresh token", async () => {
+  const storage = new Map([["oauth", { accessToken: "old", refreshToken: "dead", expiresAtMs: 0 }]]);
+  const attempts = [];
+  const fetcher = async (url, options) => {
+    const sent = new URLSearchParams(options.body).get("refresh_token");
+    attempts.push(sent);
+    if (sent === "dead") return new Response(JSON.stringify({ error: "invalid_grant" }), { status: 400 });
+    return new Response(JSON.stringify({ access_token: "fresh", refresh_token: "rotated", expires_in: 3600 }));
+  };
+  const vault = new EasyParcelTokenVault(
+    { storage: { async get(k) { return storage.get(k); }, async put(k, v) { storage.set(k, v); } } },
+    { EASYPARCEL_CLIENT_ID: "id", EASYPARCEL_CLIENT_SECRET: "secret", EASYPARCEL_REDIRECT_URI: "http://127.0.0.1:8080/callback",
+      EASYPARCEL_REFRESH_TOKEN: "bootstrap", EASYPARCEL_FETCHER: fetcher }
+  );
+  assert.equal(await vault.accessToken(), "fresh");
+  // Tried the stored token first, then fell back to the re-uploaded secret.
+  assert.deepEqual(attempts, ["dead", "bootstrap"]);
+  assert.equal(storage.get("oauth").refreshToken, "rotated");
+});

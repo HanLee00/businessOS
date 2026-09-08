@@ -42,6 +42,10 @@
     "META_AD_ACCOUNT_TIME_ZONE": "Asia/Kuala_Lumpur",
     "EASYPARCEL_REDIRECT_URI": "http://127.0.0.1:8080/callback",
     "EASYPARCEL_ACCOUNT_REGION": "Malaysia",
+    // Mask Sender Details 9 + Mask Parcel Details 9 + 6% SST on each (1+1).
+    // The shipment-detail API omits these; they appear only on the portal
+    // invoice. Set to 0 if account-level masking is ever turned off.
+    "EASYPARCEL_ADDON_PER_SHIPMENT_SEN": "20",
     "ZOHO_ORGANIZATION_ID": "933897042"
   }
 }

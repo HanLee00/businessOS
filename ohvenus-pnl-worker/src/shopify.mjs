@@ -81,6 +81,16 @@ async function graphql(env, token, query, variables, fetcher) {
   return body.data;
 }
 
+const IDENTITY_QUERY = `
+  query AppIdentity {
+    shop { name currencyCode ianaTimezone primaryDomain { host } }
+    currentAppInstallation {
+      accessScopes { handle }
+      app { title handle }
+    }
+  }
+`;
+
 const REFUNDS_QUERY = `
   query DailyRefunds($query: String!, $after: String) {
     shop { name currencyCode ianaTimezone primaryDomain { host } }
@@ -269,6 +279,33 @@ export async function readRefundsForDay(env, localDate, token, timeZone, fetcher
     }
   });
   return { shop, refunds };
+}
+
+// Reports which Shopify app the Worker actually authenticates as, and what it
+// was granted. This is the only way to confirm the scopes were added to the
+// right app, since the client id is a write-only secret.
+export async function readShopifyIdentity(env, fetcher = fetch) {
+  const token = await accessToken(env, fetcher);
+  const data = await graphql(env, token, IDENTITY_QUERY, {}, fetcher);
+  const install = data.currentAppInstallation || {};
+  const scopes = (install.accessScopes || []).map((scope) => scope.handle).sort();
+  const required = [
+    "read_assigned_fulfillment_orders",
+    "read_merchant_managed_fulfillment_orders",
+    "read_third_party_fulfillment_orders"
+  ];
+  return {
+    app: { title: install.app?.title || null, handle: install.app?.handle || null },
+    shop: {
+      name: data.shop.name,
+      primaryDomain: data.shop.primaryDomain.host,
+      currency: data.shop.currencyCode,
+      timeZone: data.shop.ianaTimezone
+    },
+    grantedScopes: scopes,
+    missingFulfillmentScopes: required.filter((scope) => !scopes.includes(scope)),
+    courierAttributionReady: required.every((scope) => scopes.includes(scope))
+  };
 }
 
 export async function readShopifyDay(env, localDate, fetcher = fetch) {

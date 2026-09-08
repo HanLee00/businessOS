@@ -1,6 +1,6 @@
 import { buildJournalPreview } from "./calculation.mjs";
 import { resolveAccountIds } from "./accounts.mjs";
-import { previousLocalDate, readShopifyDay } from "./shopify.mjs";
+import { previousLocalDate, readShopifyDay, readShopifyIdentity } from "./shopify.mjs";
 import { readMetaAdsDay } from "./meta.mjs";
 import { readEasyParcelDay } from "./easyparcel.mjs";
 import { recoveryDates, recordRun } from "./state.mjs";
@@ -128,6 +128,14 @@ export default {
         return json({ ok: true, preview: resolveAccountIds(preview) });
       } catch (error) {
         return json({ ok: false, error: error instanceof Error ? error.message : "invalid input" }, 400);
+      }
+    }
+    if (request.method === "POST" && url.pathname === "/source-check/identity") {
+      if (!authorized(request, env)) return json({ ok: false, error: "unauthorized" }, 401);
+      try {
+        return json({ ok: true, identity: await readShopifyIdentity(env) });
+      } catch (error) {
+        return json({ ok: false, error: error instanceof Error ? error.message : "identity check failed" }, 400);
       }
     }
     if (request.method === "POST" && url.pathname === "/source-check/shopify") {

@@ -89,9 +89,22 @@ export class EasyParcelTokenVault {
         if (current?.accessToken && Number(current.expiresAtMs) > Date.now() + 5 * 60 * 1000) {
           return String(current.accessToken);
         }
-        const refreshToken = String(current?.refreshToken || this.env.EASYPARCEL_REFRESH_TOKEN || "").trim();
-        if (!refreshToken) throw new Error("EASYPARCEL_REFRESH_TOKEN is not configured");
-        const tokens = await requestRefreshedTokens(this.env, refreshToken, this.env.EASYPARCEL_FETCHER || fetch, Date.now());
+        const storedToken = String(current?.refreshToken || "").trim();
+        const bootstrapToken = String(this.env.EASYPARCEL_REFRESH_TOKEN || "").trim();
+        if (!storedToken && !bootstrapToken) throw new Error("EASYPARCEL_REFRESH_TOKEN is not configured");
+        const fetcher = this.env.EASYPARCEL_FETCHER || fetch;
+        let tokens = null;
+        if (storedToken) {
+          try {
+            tokens = await requestRefreshedTokens(this.env, storedToken, fetcher, Date.now());
+          } catch (error) {
+            // EasyParcel refresh tokens are single-use. If another client rotated
+            // it, the stored copy is dead and only re-uploading the secret can
+            // recover, so fall back to the bootstrap secret rather than bricking.
+            if (!bootstrapToken || bootstrapToken === storedToken) throw error;
+          }
+        }
+        if (!tokens) tokens = await requestRefreshedTokens(this.env, bootstrapToken, fetcher, Date.now());
         await this.state.storage.put(TOKEN_KEY, tokens);
         return tokens.accessToken;
       })().finally(() => { this.refreshPromise = null; });
@@ -188,6 +201,16 @@ function priceComponents(pricing) {
   return components;
 }
 
+function addonPerShipmentSen(env) {
+  const raw = env.EASYPARCEL_ADDON_PER_SHIPMENT_SEN;
+  if (raw == null || raw === "") return 0;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 0 || !Number.isInteger(value)) {
+    throw new Error("EASYPARCEL_ADDON_PER_SHIPMENT_SEN must be a whole number of sen");
+  }
+  return value;
+}
+
 function detailMoneyValue(pricing) {
   const total = pricing.total_price == null || pricing.total_price === "" ? null : Number(pricing.total_price);
   const shipment = pricing.shipment_price == null || pricing.shipment_price === "" ? null : Number(pricing.shipment_price);
@@ -202,7 +225,7 @@ function detailMoneyValue(pricing) {
   return { amount: null, source: null };
 }
 
-async function shipmentCost(listed, token, fetcher) {
+async function shipmentCost(env, listed, token, fetcher) {
   const shipmentNumber = String(listed.shipment_number || "").trim();
   const body = await postJson(`${DETAIL_API_BASE}/shipment/details`, token, { shipment_number: shipmentNumber }, fetcher);
   const detail = Array.isArray(body.data) ? body.data[0] : body.data;
@@ -218,17 +241,24 @@ async function shipmentCost(listed, token, fetcher) {
   const currency = String(pricing.currency_code || pricing.currency || detail.currency_code || "").trim();
   if (currency !== "MYR") throw new Error(`EasyParcel shipment ${shipmentNumber} was not denominated in MYR`);
   const components = priceComponents(pricing);
-  const costSen = Math.round(amount * 100);
-  const largestSen = Math.max(costSen, ...Object.values(components));
+  const apiCostSen = Math.round(amount * 100);
+  // EasyParcel's shipment-detail pricing omits account-level addon charges such
+  // as Mask Sender/Parcel Details and their tax. They appear only on the portal
+  // invoice, so they are applied here as a configured per-shipment constant.
+  const addonSen = addonPerShipmentSen(env);
+  const costSen = apiCostSen + addonSen;
+  const largestSen = Math.max(apiCostSen, ...Object.values(components));
   return {
     shipmentNumber,
     awbNumber: detailAwb || listedAwb || null,
     costSen,
+    apiCostSen,
+    addonSen,
     priceSource: source,
     priceComponents: components,
     // Flags a shipment where some returned component exceeds the chosen price,
     // which is how an omitted surcharge shows up instead of staying hidden.
-    priceUnderChosen: largestSen > costSen ? largestSen - costSen : 0
+    priceUnderChosen: largestSen > apiCostSen ? largestSen - apiCostSen : 0
   };
 }
 
@@ -245,7 +275,7 @@ export async function readEasyParcelDay(env, localDate, fetcher = fetch) {
   const shipments = [];
   for (let index = 0; index < listed.length; index += DETAIL_CONCURRENCY) {
     const batch = listed.slice(index, index + DETAIL_CONCURRENCY);
-    shipments.push(...await Promise.all(batch.map((item) => shipmentCost(item, token, fetcher))));
+    shipments.push(...await Promise.all(batch.map((item) => shipmentCost(env, item, token, fetcher))));
   }
   return {
     source: "easyparcel",
@@ -254,6 +284,9 @@ export async function readEasyParcelDay(env, localDate, fetcher = fetch) {
     currency: "MYR",
     shipmentCount: shipments.length,
     courierCostSen: shipments.reduce((total, shipment) => total + shipment.costSen, 0),
+    apiCourierCostSen: shipments.reduce((total, shipment) => total + shipment.apiCostSen, 0),
+    addonCourierCostSen: shipments.reduce((total, shipment) => total + shipment.addonSen, 0),
+    addonPerShipmentSen: addonPerShipmentSen(env),
     priceReviewRequiredCount: shipments.filter((shipment) => shipment.priceUnderChosen > 0).length,
     shipments
   };
