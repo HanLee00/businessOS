@@ -82,12 +82,12 @@ test("balances a refund-only day where refunds exceed new sales", () => {
   assert.equal(preview.debitsSen, preview.creditsSen);
   assert.equal(preview.revenue.netRevenueSen, -20000);
   assert.equal(preview.directCosts.netCogsSen, -6000);
-  // Refund reverses revenue and puts stock back: -20000 + 6000 = -14000.
+  // Refund reverses revenue and reverses COGS: -20000 + 6000 = -14000.
   assert.equal(preview.netProfitSen, -14000);
   const clearing = preview.journalLines.find((line) => line.accountKey === "stripe_clearing");
   assert.deepEqual({ debit: clearing.debitSen, credit: clearing.creditSen }, { debit: 0, credit: 20000 });
-  const inventory = preview.journalLines.find((line) => line.accountKey === "inventory_asset");
-  assert.equal(inventory.debitSen, 6000);
+  const cogsPayable = preview.journalLines.find((line) => line.accountKey === "cogs_payable");
+  assert.equal(cogsPayable.debitSen, 6000);
 });
 
 test("nets a same-day sale and refund without unbalancing the journal", () => {

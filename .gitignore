@@ -4,3 +4,4 @@ session-handoff.md
 **/.wrangler/
 **/.dev.vars
 **/.env
+**/.zoho.env

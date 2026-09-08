@@ -26,9 +26,20 @@ async function body(response) {
   }
 }
 
+// Zoho throttles the refresh-token grant hard ("too many requests
+// continuously"). A single invocation can write several journals (a backfill
+// plus rescans), and the isolate is reused across invocations, so the access
+// token is cached and reused until shortly before it expires.
+let cachedToken = null;
+
 export async function accessToken(env, fetcher = fetch) {
+  const refreshToken = requireValue(env.ZOHO_REFRESH_TOKEN, "ZOHO_REFRESH_TOKEN");
+  const now = Date.now();
+  if (cachedToken && cachedToken.refreshToken === refreshToken && cachedToken.expiresAt > now) {
+    return cachedToken.token;
+  }
   const params = new URLSearchParams({
-    refresh_token: requireValue(env.ZOHO_REFRESH_TOKEN, "ZOHO_REFRESH_TOKEN"),
+    refresh_token: refreshToken,
     client_id: requireValue(env.ZOHO_CLIENT_ID, "ZOHO_CLIENT_ID"),
     client_secret: requireValue(env.ZOHO_CLIENT_SECRET, "ZOHO_CLIENT_SECRET"),
     grant_type: "refresh_token"
@@ -36,7 +47,12 @@ export async function accessToken(env, fetcher = fetch) {
   const response = await fetcher(`${ACCOUNTS_URL}?${params}`, { method: "POST" });
   const result = await body(response);
   const token = String(result.access_token || "").trim();
-  if (!response.ok || !token) throw new Error(`Zoho token refresh failed with HTTP ${response.status}`);
+  if (!response.ok || !token) {
+    const detail = String(result.error_description || result.error || "").trim();
+    throw new Error(`Zoho token refresh failed with HTTP ${response.status}${detail ? `: ${detail}` : ""}`);
+  }
+  const ttlSeconds = Number(result.expires_in) > 0 ? Number(result.expires_in) : 3600;
+  cachedToken = { token, refreshToken, expiresAt: now + (ttlSeconds - 120) * 1000 };
   return token;
 }
 
@@ -53,7 +69,11 @@ async function call(env, token, method, path, payload, fetcher) {
   });
   const result = await body(response);
   if (!response.ok || (result.code != null && Number(result.code) !== 0)) {
-    throw new Error(`Zoho ${method} ${path} failed with HTTP ${response.status} code ${result.code}`);
+    const detail = String(result.message || "").trim();
+    throw new Error(
+      `Zoho ${method} ${path} failed with HTTP ${response.status} code ${result.code}` +
+        (detail ? `: ${detail}` : "")
+    );
   }
   return result;
 }

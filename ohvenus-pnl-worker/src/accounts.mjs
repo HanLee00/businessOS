@@ -4,7 +4,7 @@ export const ZOHO_ACCOUNT_IDS = Object.freeze({
   discount: "907512000000000406",
   refunds: "907512000000114002",
   cogs: "907512000000034003",
-  inventory_asset: "907512000000034001",
+  cogs_payable: "907512000000129008",
   stripe_fees: "907512000000115002",
   billplz_fees: "907512000000116002",
   packaging_cost: "907512000000117002",

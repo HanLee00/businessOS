@@ -84,10 +84,6 @@ ohvenus_daily_journal:
   reference_pattern: OHV-PNL-<local-date>
   status_during_trial: draft
   existing_balance_sheet_accounts:
-    inventory_asset:
-      account_id: "907512000000034001"
-      account_name: Inventory Asset
-      account_type: stock
     tax_payable:
       account_id: "907512000000000376"
       account_name: Tax Payable
@@ -117,6 +113,14 @@ ohvenus_daily_journal:
       account_id: "907512000000124002"
       account_name: Packaging Cost Accrual
       account_type: other_current_liability
+    cogs_payable:
+      account_id: "907512000000129008"
+      account_name: COGS Payable
+      account_type: other_current_liability
+      note: >-
+        Replaces the stock-type Inventory Asset account, which Zoho blocks in
+        manual journals. Offsets Cost of Goods Sold on the daily P&L; not tied
+        to individual supplier bills.
   balancing_rules:
     sales_and_payments:
       debit:
@@ -131,7 +135,7 @@ ohvenus_daily_journal:
       debit:
         - Cost of Goods Sold for Shopify product unit costs
       credit:
-        - Inventory Asset for the same amount
+        - COGS Payable for the same amount
     meta:
       debit:
         - Meta Ads for actual daily spend

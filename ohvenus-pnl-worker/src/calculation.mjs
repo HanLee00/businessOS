@@ -121,7 +121,10 @@ export function buildJournalPreview(snapshot, clearingByGatewaySen) {
   addLine(lines, "tax_payable", 0, pnl.taxesSen);
 
   addLine(lines, "cogs", pnl.directCosts.cogsSen, pnl.directCosts.cogsReversalSen);
-  addLine(lines, "inventory_asset", pnl.directCosts.cogsReversalSen, pnl.directCosts.cogsSen);
+  // Offset for COGS recognition. Zoho blocks manual journals against the
+  // stock-type Inventory Asset account, so the daily P&L books the other side
+  // to the COGS Payable liability, matching how Meta and packaging accrue.
+  addLine(lines, "cogs_payable", pnl.directCosts.cogsReversalSen, pnl.directCosts.cogsSen);
   addLine(lines, "meta_ads", pnl.operatingExpenses.metaAdsSen, 0);
   addLine(lines, "meta_platform_fees", pnl.operatingExpenses.metaPlatformFeesSen, 0);
   addLine(lines, "meta_payable", 0, pnl.operatingExpenses.metaAdsSen + pnl.operatingExpenses.metaPlatformFeesSen);

@@ -25,11 +25,56 @@ there is no P&L object to write to.
 | Tests | 63 passing (`npm test` in `ohvenus-pnl-worker`) |
 | Last commit | `297a62b` |
 | Cloudflare secrets | `EASYPARCEL_CLIENT_ID`, `EASYPARCEL_CLIENT_SECRET`, `EASYPARCEL_REFRESH_TOKEN`, `META_ACCESS_TOKEN`, `PREVIEW_TOKEN`, `SHOPIFY_CLIENT_ID`, `SHOPIFY_CLIENT_SECRET` |
-| Missing secrets | `ZOHO_CLIENT_ID`, `ZOHO_CLIENT_SECRET`, `ZOHO_REFRESH_TOKEN` |
+| Missing secrets | none — all three ZOHO secrets uploaded 2026-09-09 |
 | Preview token | `ohvenus-pnl-worker/.dev.vars` (gitignored) |
 
 Stored run history for 2026-09-01 → 2026-09-07 is complete: every day balances,
 every reference is `OHV-PNL-<date>`, 100% of courier cost attributed by order.
+
+## Progress (2026-09-09)
+
+- **Step 1 done.** Self-client created under `leewenhan20@gmail.com`. Refresh
+  token saved to `easyparcel-sync/.zoho.env` (gitignored via `**/.zoho.env`).
+  Correct scope is `ZohoBooks.accountants.*`, not `ZohoBooks.journals.*` — Zoho
+  rejects the latter. There is no portal picker in the self-client Generate Code
+  screen.
+- **Step 2 done.** `ZOHO_CLIENT_ID`, `ZOHO_CLIENT_SECRET`, `ZOHO_REFRESH_TOKEN`
+  uploaded to the `ohvenus-daily-pnl` Worker (Cloudflare account
+  `ohvenus.shop@gmail.com`). `wrangler secret list` shows all 10.
+- **Step 3 done.** The token was verified read-only against Oh! Venus directly:
+  `GET /chartofaccounts?organization_id=933897042` → 200, `GET /journals` → 200
+  with **zero existing journals**, and all 19 account IDs in `src/accounts.mjs`
+  exist in the live Oh! Venus chart with matching names/types.
+  Note: `GET /organizations` lists **only Gaia** for this token — a Zoho quirk
+  (it shows the user's default-portal association). It is not a failure and the
+  Worker never calls it. Do not use `/organizations` as the org check; use a
+  `organization_id=933897042`-scoped call instead.
+- **Step 4 done (compressed).** `MODE=publish_draft` deployed. Backfilled
+  2026-09-01 → 2026-09-07 as drafts. All 7 balanced, one journal per date, zero
+  duplicates, every total matched `GET /runs` to the sen. Re-runs and rescans
+  returned `unchanged`. Hit a Zoho refresh-token rate limit from repeated test
+  runs — transient; the Worker now caches the access token per isolate so a
+  normal daily run refreshes once.
+- **Step 4 fix — `cogs_payable`.** The first draft POST failed with Zoho code
+  11016 "Involved account types are not applicable": Zoho blocks manual journals
+  against the stock-type Inventory Asset account. Created **COGS Payable**
+  (`907512000000129008`, Other Current Liability) in the Oh! Venus chart and
+  repointed the COGS offset to it in `src/accounts.mjs`, `src/calculation.mjs`,
+  and `reporting/account-mapping.yaml`. Same accrual pattern as Meta Payable and
+  Packaging Cost Accrual; not tied to supplier bills.
+- **Step 5 done — LIVE on `publish` (2026-09-09).** `MODE=publish` deployed
+  (version `d0e36d1e`). All 7 draft journals updated in place to `published`
+  (same journal ids, no duplicates). 09-01 → 09-07 all `published`, balanced,
+  reconciled to `GET /runs`. The noon cron (`0 4 * * *` UTC) now posts the prior
+  day and rescans automatically.
+- **Owner check still open:** confirm the Zoho **Profit and Loss report** for
+  2026-09-01 → 2026-09-07 reflects the journals (the go-live token lacks
+  `ZohoBooks.reports.READ`, so this is a UI check). Reports → Profit and Loss,
+  accrual basis, that date range.
+- **Not done:** Step 6 optional backfill is already covered — all seven days are
+  posted. Gap #3 (published-journal amendments to closed periods on rescan) still
+  needs an owner + accountant decision; until then the rolling rescan will amend
+  published journals in place.
 
 ## What already works
 
@@ -55,10 +100,13 @@ transcript.
 2. **Add Client → Self Client → Create**. Note the **Client ID** and
    **Client Secret**.
 3. Open the **Generate Code** tab.
-   - Scope: `ZohoBooks.journals.CREATE,ZohoBooks.journals.UPDATE,ZohoBooks.journals.READ,ZohoBooks.settings.READ`
+   - Scope: `ZohoBooks.accountants.CREATE,ZohoBooks.accountants.UPDATE,ZohoBooks.accountants.READ,ZohoBooks.settings.READ`
+     (Zoho rejects `ZohoBooks.journals.*` as invalid — journals live under the
+     `accountants` scope family.)
    - Time duration: 10 minutes
    - Scope Description: `OhVenus daily P&L`
-   - Choose the portal/organization for **Oh! Venus**, not Gaia Gifts Co.
+   - There is no portal picker in this screen. Org access comes from the login
+     used; verify it in Step 3 with a `933897042`-scoped call.
 4. Copy the generated **code** (valid ~10 minutes).
 5. Exchange it for a refresh token from the terminal, replacing the three values.
    Run this yourself; do not paste secrets into chat:
@@ -87,10 +135,9 @@ transcript.
 
 7. Tell the next session the file exists. Do not paste the values.
 
-**Region check:** if the Zoho account is not on `.com` (for example `.eu`,
-`.in`, `.com.au`), both `ACCOUNTS_URL` and `BOOKS_BASE` in `src/zoho.mjs` must be
-changed to the matching domain. The Oh! Venus account is assumed `.com` because
-invoice creation was previously verified against `https://www.zohoapis.com`.
+**Region check:** the Oh! Venus account is confirmed on `.com` (verified
+2026-09-09 against `https://www.zohoapis.com`). No `src/zoho.mjs` URL change
+needed.
 
 ## Step 2 — Upload the secrets (next session)
 
@@ -104,11 +151,14 @@ grep '^ZOHO_REFRESH_TOKEN=' ../easyparcel-sync/.zoho.env | cut -d= -f2- | tr -d 
 
 Verify with `npx wrangler secret list` — names only, never values.
 
-## Step 3 — Read-only credential check before any write
+## Step 3 — Read-only credential check before any write — DONE 2026-09-09
 
-Keep `MODE=preview_only`. Add a temporary read-only check that the credentials
-work and resolve to the right organization, for example calling
-`GET /organizations` and asserting `933897042` and `Oh! Venus`.
+Keep `MODE=preview_only`. Verify the token read-only against Oh! Venus with an
+`organization_id=933897042`-scoped call (chart of accounts or journals list).
+Do **not** rely on `GET /organizations` — it returns only Gaia for this token.
+
+Done: chart of accounts and journals both returned HTTP 200 for `933897042`,
+zero existing journals, all 19 `src/accounts.mjs` IDs present in the live chart.
 
 **Do not proceed if the organization name or id does not match.** A wrong
 organization means Gaia's ledger, which must never be written to from here.
