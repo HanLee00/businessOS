@@ -20,6 +20,30 @@ function assertLocalDate(localDate) {
   }
 }
 
+function shiftLocalDate(localDate, days) {
+  const date = new Date(`${localDate}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+// EasyParcel returns coll_date in UTC (always 16:00:00, i.e. 00:00 Malaysia the
+// next day) while the portal shows the Malaysia date. Filtering the list on the
+// raw date part therefore books courier cost a day early, so the real local date
+// is derived here and the query is buffered either side.
+function collectionLocalDate(collDate, timeZone) {
+  const raw = String(collDate || "").trim();
+  // Never silently drop a shipment: without a collection date its cost could
+  // vanish from every day, so fail closed instead.
+  if (!raw) throw new Error("EasyParcel shipment had no collection date");
+  const iso = raw.includes("T") ? raw : raw.replace(" ", "T");
+  const instant = new Date(/[Z+]|-\d{2}:\d{2}$/.test(iso) ? iso : `${iso}Z`);
+  if (!Number.isFinite(instant.valueOf())) throw new Error("EasyParcel returned an invalid collection date");
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" })
+    .formatToParts(instant);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
 function assertScope(env) {
   if (requireValue(env.TIME_ZONE, "TIME_ZONE") !== "Asia/Kuala_Lumpur") {
     throw new Error("EasyParcel timezone did not match Oh! Venus");
@@ -154,7 +178,7 @@ async function listShipments(localDate, token, fetcher) {
   const seenShipments = new Set();
   let cursor;
   for (let pageNumber = 0; pageNumber < 100; pageNumber += 1) {
-    const payload = { date_from: localDate, date_to: localDate, limit: 250 };
+    const payload = { date_from: shiftLocalDate(localDate, -1), date_to: shiftLocalDate(localDate, 1), limit: 250 };
     if (cursor) payload.before_shipment_number = cursor;
     const body = await postJson(`${LIST_API_BASE}/shipment/list`, token, payload, fetcher, true);
     if (!body) break;
@@ -225,15 +249,16 @@ function detailMoneyValue(pricing) {
   return { amount: null, source: null };
 }
 
-async function shipmentCost(env, listed, token, fetcher) {
+async function shipmentCost(env, listed, token, fetcher, timeZone) {
   const shipmentNumber = String(listed.shipment_number || "").trim();
   const body = await postJson(`${DETAIL_API_BASE}/shipment/details`, token, { shipment_number: shipmentNumber }, fetcher);
   const detail = Array.isArray(body.data) ? body.data[0] : body.data;
   if (!detail || typeof detail !== "object" || String(detail.shipment_number || "").trim() !== shipmentNumber) {
     throw new Error(`EasyParcel shipment identity mismatch for ${shipmentNumber}`);
   }
+  const details = detail.shipment_details && typeof detail.shipment_details === "object" ? detail.shipment_details : {};
   const listedAwb = String(listed.awb || listed.awb_number || "").trim();
-  const detailAwb = String(detail.shipment_details?.awb_number || "").trim();
+  const detailAwb = String(details.awb_number || "").trim();
   if (listedAwb && detailAwb && listedAwb !== detailAwb) throw new Error(`EasyParcel AWB identity mismatch for ${shipmentNumber}`);
   const pricing = detail.pricing && typeof detail.pricing === "object" ? detail.pricing : {};
   const { amount, source } = detailMoneyValue(pricing);
@@ -251,6 +276,9 @@ async function shipmentCost(env, listed, token, fetcher) {
   return {
     shipmentNumber,
     awbNumber: detailAwb || listedAwb || null,
+    // EasyParcel carries the Shopify order name it was booked against.
+    orderReference: String(details.reference || "").trim() || null,
+    collectionLocalDate: collectionLocalDate(details.coll_date || listed.coll_date, timeZone),
     costSen,
     apiCostSen,
     addonSen,
@@ -265,6 +293,7 @@ async function shipmentCost(env, listed, token, fetcher) {
 export async function readEasyParcelDay(env, localDate, fetcher = fetch) {
   assertLocalDate(localDate);
   assertScope(env);
+  const timeZone = env.TIME_ZONE;
   const token = await accessToken(env);
   const listed = await listShipments(localDate, token, fetcher);
   if (listed.length > MAX_SHIPMENTS_PER_DAY) {
@@ -275,19 +304,21 @@ export async function readEasyParcelDay(env, localDate, fetcher = fetch) {
   const shipments = [];
   for (let index = 0; index < listed.length; index += DETAIL_CONCURRENCY) {
     const batch = listed.slice(index, index + DETAIL_CONCURRENCY);
-    shipments.push(...await Promise.all(batch.map((item) => shipmentCost(env, item, token, fetcher))));
+    shipments.push(...await Promise.all(batch.map((item) => shipmentCost(env, item, token, fetcher, timeZone))));
   }
+  // The buffered window pulls neighbouring days; keep only this Malaysia day.
+  const onDay = shipments.filter((shipment) => shipment.collectionLocalDate === localDate);
   return {
     source: "easyparcel",
     localDate,
     account: { region: "Malaysia", currency: "MYR", timeZone: "Asia/Kuala_Lumpur" },
     currency: "MYR",
-    shipmentCount: shipments.length,
-    courierCostSen: shipments.reduce((total, shipment) => total + shipment.costSen, 0),
-    apiCourierCostSen: shipments.reduce((total, shipment) => total + shipment.apiCostSen, 0),
-    addonCourierCostSen: shipments.reduce((total, shipment) => total + shipment.addonSen, 0),
+    shipmentCount: onDay.length,
+    courierCostSen: onDay.reduce((total, shipment) => total + shipment.costSen, 0),
+    apiCourierCostSen: onDay.reduce((total, shipment) => total + shipment.apiCostSen, 0),
+    addonCourierCostSen: onDay.reduce((total, shipment) => total + shipment.addonSen, 0),
     addonPerShipmentSen: addonPerShipmentSen(env),
-    priceReviewRequiredCount: shipments.filter((shipment) => shipment.priceUnderChosen > 0).length,
-    shipments
+    priceReviewRequiredCount: onDay.filter((shipment) => shipment.priceUnderChosen > 0).length,
+    shipments: onDay
   };
 }

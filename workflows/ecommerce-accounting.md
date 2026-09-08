@@ -210,10 +210,33 @@ rotated refresh token in its secret store; it must not rely on a copied access t
   stored token is rejected, so re-uploading that secret is enough to recover.
   Before this, an externally rotated token bricked the hosted read permanently.
 
+## EasyParcel books shipments a day early (fixed 2026-09-08)
+
+- `coll_date` is returned in UTC and is always `16:00:00`, which is 00:00 the
+  next day in Malaysia. The shipment-list `date_from`/`date_to` filter matches
+  the raw date part, so querying local day D returned the shipments belonging to
+  D+1 and every day's courier cost was booked one day early.
+- Confirmed against the portal: `ES-2608-MGPMS` has `coll_date`
+  `2026-08-31 16:00:00` and the portal shows `Date: 2026-09-01`.
+- The query is now buffered one day either side and each shipment is kept only
+  when its Malaysia-local collection date equals the target day. A shipment with
+  no `coll_date` fails closed rather than being silently dropped from every day.
+
 ## Per-order courier attribution
 
-- Each EasyParcel shipment-detail cost is matched to the Shopify order it
-  shipped, by AWB against the order's fulfillment tracking numbers.
+- EasyParcel's `shipment_details.reference` carries the Shopify order name it was
+  booked against, so that is the primary link. AWB against the order's
+  fulfillment tracking numbers is the fallback, and only ever matches an order
+  placed on the same day.
+- Orders normally ship the day after they are placed, so a shipment whose
+  reference names an order outside the current day is still fully attributed and
+  is reported under `attributedToOrderFromAnotherDay`. Only a shipment with no
+  usable reference counts as `unattributed`.
+- Courier cost is recognised on the day the parcel was collected, while the sale
+  is recognised on the day the order was placed. A day can therefore show two
+  orders and one shipment without anything being missing. Verified 2026-09-06:
+  orders `#1180` and `#1181` were both placed that day, `#1180` shipped that day
+  and `#1181` shipped on 2026-09-07.
 - `Order.fulfillments.trackingInfo` resolves on `read_orders` / `read_all_orders`.
   The fulfillment-order scopes listed by schema validation are only required for
   `FulfillmentOrder` objects, which this Worker never reads. Attribution works on

@@ -11,29 +11,58 @@ export { OhVenusPnlState } from "./state.mjs";
 // A shipment whose order was placed on an earlier day cannot match inside a
 // single day's order set, so it is reported as unmatched rather than hidden.
 export function matchCourierCostsToOrders(shopify, easyparcel) {
-  const orderByAwb = new Map();
-  for (const order of shopify.orders || []) {
-    for (const tracking of order.trackingNumbers || []) orderByAwb.set(tracking, order);
+  const orders = shopify.orders || [];
+  // EasyParcel stores the Shopify order name it was booked against, which links
+  // a shipment to its order whatever day that order was placed. AWB matching is
+  // kept as a fallback and only ever finds orders within the same day.
+  const byReference = new Map();
+  const byAwb = new Map();
+  for (const order of orders) {
+    const name = String(order.orderName || "").trim();
+    if (name) byReference.set(name.replace(/^#/, "").toLowerCase(), order);
+    for (const tracking of order.trackingNumbers || []) byAwb.set(tracking, order);
   }
+
   const matched = [];
+  const otherDay = [];
   const unmatched = [];
   for (const shipment of easyparcel.shipments) {
-    const order = shipment.awbNumber ? orderByAwb.get(shipment.awbNumber) : null;
+    const reference = String(shipment.orderReference || "").trim().replace(/^#/, "").toLowerCase();
+    let order = reference ? byReference.get(reference) : null;
+    let matchedBy = order ? "reference" : null;
+    if (!order && shipment.awbNumber) {
+      order = byAwb.get(shipment.awbNumber);
+      if (order) matchedBy = "awb";
+    }
     const entry = {
       shipmentNumber: shipment.shipmentNumber,
       awbNumber: shipment.awbNumber,
-      courierCostSen: shipment.costSen,
+      orderReference: shipment.orderReference || null,
+      courierCostSen: shipment.courierCostSen ?? shipment.costSen,
       orderId: order?.orderId || null,
-      orderName: order?.orderName || null
+      orderName: order?.orderName || shipment.orderReference || null,
+      matchedBy
     };
-    (order ? matched : unmatched).push(entry);
+    if (order) matched.push(entry);
+    // Orders usually ship the day after they are placed, so a shipment whose
+    // reference names an order outside this day is still fully attributed. Only
+    // a shipment with no usable reference is genuinely unknown.
+    else if (entry.orderReference) otherDay.push(entry);
+    else unmatched.push(entry);
   }
+  const sum = (list) => list.reduce((total, entry) => total + entry.courierCostSen, 0);
   return {
     matchedCount: matched.length,
+    otherDayCount: otherDay.length,
     unmatchedCount: unmatched.length,
-    matchedCourierCostSen: matched.reduce((sum, entry) => sum + entry.courierCostSen, 0),
-    unmatchedCourierCostSen: unmatched.reduce((sum, entry) => sum + entry.courierCostSen, 0),
+    attributedCount: matched.length + otherDay.length,
+    matchedByReferenceCount: matched.filter((entry) => entry.matchedBy === "reference").length,
+    matchedByAwbCount: matched.filter((entry) => entry.matchedBy === "awb").length,
+    matchedCourierCostSen: sum(matched),
+    otherDayCourierCostSen: sum(otherDay),
+    unmatchedCourierCostSen: sum(unmatched),
     perOrder: matched,
+    attributedToOrderFromAnotherDay: otherDay,
     unattributed: unmatched
   };
 }
@@ -91,6 +120,7 @@ async function runRecovery(env, targetDate) {
       debitsSen: result.preview.debitsSen,
       creditsSen: result.preview.creditsSen,
       courierMatchedCount: result.courierAttribution.matchedCount,
+      courierAttributedCount: result.courierAttribution.attributedCount,
       courierUnmatchedCount: result.courierAttribution.unmatchedCount,
       duplicate: state.duplicate,
       changed: state.changed,
